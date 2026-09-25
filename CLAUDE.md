@@ -79,8 +79,17 @@ Next.js(App Router, TypeScript) + SQLite(Drizzle ORM) 웹 서비스 계층. 계�
 - `webapp/src/lib/paths.ts`: 프로젝트 루트·`.venv` 파이썬·`output/` 경로를 계산. `webapp/`이 항상 루트 바로 아래에 있다고 전제(`AGM_OEE_PROJECT_ROOT` 환경변수로 재정의 가능).
 - `webapp/src/lib/runPython.ts`: `child_process.execFile`로 `.venv`의 python을 실행해 `scripts/export_data.py`를 돌린다. 실패 시 stderr를 그대로 반환(재계산 로직 없음, 실행만 함).
 - `webapp/src/lib/ingest.ts`: `output/agm_line_day.csv`·`agm_allocation.csv`를 읽어 SQLite에 upsert. 같은 날짜의 기존 행은 지우고 다시 넣는 방식이라 재업로드 시 자동으로 덮어써진다. **여기서 가동율을 다시 계산하지 않는다** — 재계산이 필요하면 `analysis.py`를 고쳐야 한다.
-- `webapp/scripts/ingest-once.ts` (`npm run ingest:once`): 위 두 단계(Python 실행 → CSV 적재)를 한 번에 실행하는 수동 검증용 CLI.
+- `webapp/src/lib/uploadPipeline.ts`: `runPython`+`ingest`를 묶어 `uploads` 테이블 상태(processing→done/error)까지 기록한다. M5 업로드 Server Action이 이 함수를 그대로 재사용할 예정.
+- `webapp/scripts/ingest-once.ts` (`npm run ingest:once`): 위 파이프라인 전체를 한 번에 실행하는 수동 검증용 CLI.
 - `webapp/CLAUDE.md`/`webapp/AGENTS.md`: Next.js가 `next dev`/`next build` 때마다 자동으로 다시 써넣는 파일(버전별 API 차이를 알려주는 용도). 손으로 고치지 않는다.
+
+### 디자인 시스템 연동 (`webapp/`)
+- Tailwind v4는 CSS 기반 설정이라 `tailwind.config.ts`가 없다 — 토큰은 `webapp/src/app/globals.css`의 `@theme inline` 블록에 있다.
+- `sebang.css` 원본(`sebang_design_system_2/sebang-design-system/sebang.css`)은 Turbopack이 `webapp/` 바깥 경로를 CSS `@import` 하지 못하게 막아서, `npm run sync:design`(`scripts/sync-design.mjs`, `postinstall`로 자동 실행)이 `webapp/public/design/sebang.css`로 복사해두면 `layout.tsx`가 `<link>`로 읽는다. **원본을 고치면 `npm run sync:design`을 다시 실행해야 반영된다** — `public/design/`은 git에 커밋하지 않는다.
+- `globals.css`의 `@theme inline`은 `sebang.css`가 정의한 `--color-*` 변수를 그대로 다시 노출해 `bg-bg-base`, `text-accent-primary` 같은 Tailwind 유틸리티를 만든다. `@custom-variant dark`가 `data-theme="dark"` 속성 기준으로 `dark:` 유틸리티를 켠다(시스템 설정이 아님). `design.md` 3.3절 타입 스케일(`text-h1` 등)은 `@utility`로 추가했다.
+- `components/ThemeToggle.tsx`는 React state로 테마를 추적하지 않는다 — `<html data-theme>`을 직접 읽고/쓰고 CSS(`dark:hidden` 등)로 보이는 라벨만 바꾼다. React state로 만들면 (레이아웃의 인라인 스크립트가 hydration 전에 미리 정해둔 값과 어긋나) hydration mismatch가 난다.
+- 사이드바 네비게이션은 `lib/nav.ts`의 그룹 배열로만 정의된다. 화면을 추가하려면(생산성지표, OEE 등) 여기에 그룹/항목만 추가하면 된다 — 사용자가 UI 단계에서 화면·기능이 계속 늘어날 것이라고 확인했다.
+- 차트는 `react-plotly.js`+`plotly.js-dist-min`(전체 trace 포함, 용량만 최소화) 하나로 통일한다(`components/Plot.tsx`). Plotly는 `document`에 접근해 SSR이 안 되므로, 쓰는 곳은 반드시 `"use client"` 컴포넌트 안에서 `next/dynamic(..., { ssr: false })`로 불러온다(`components/GaugeCard.tsx` 참고).
 
 ## 다음 할 일
 1. 대시보드 웹앱(`webapp/`, Next.js+SQLite — 아래 참고)을 만든다. 첫 화면은 ①, 상세 화면은 ③④⑤로 구성한다. 요구사항은 [PRD_agm-oee.md](PRD_agm-oee.md), 기술 선택 근거는 [TECH_agm-oee.md](TECH_agm-oee.md) 참고(②설비 상태 타임라인은 부동 발생 시각 데이터가 없어 이번 범위 제외).

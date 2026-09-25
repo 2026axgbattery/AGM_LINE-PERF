@@ -61,7 +61,7 @@
 - `sebang_design_system_2/sebang-design-system/sebang.css`를 `webapp/`으로 복사(또는 참조)하고 `app/layout.tsx`에서 글로벌 import
 - `tailwind.config.ts`에 `design.md` 2.5절 시맨틱 토큰을 `var(--color-*)` 참조로 매핑
 - 로고 SVG(`design.md` 1.2절)를 컴포넌트화(`components/SebangLogo.tsx`)
-- 공통 네비게이션(①/③/④/⑤ 탭), 기간·라인 전역 필터 UI, 다크모드 토글(`data-theme`) 뼈대 작성
+- 공통 네비게이션(좌측 사이드바, 그룹별 확장 가능 — 향후 생산성지표/OEE 등 화면 추가 전제), 기간·라인 전역 필터 UI(M3로 보류), 다크모드 토글(`data-theme`) 뼈대 작성
 - `react-plotly.js` 설치 및 최소 예제 차트 1개로 렌더링 확인
 
 **완료 기준(DoD)**: 빈 페이지에 세방 CI 색상/폰트/로고가 적용된 공통 헤더·네비게이션이 라이트/다크 모드 모두에서 정상 표시된다.

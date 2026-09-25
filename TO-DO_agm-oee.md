@@ -2,7 +2,7 @@
 
 - 관련 문서: [PLAN_agm-oee.md](PLAN_agm-oee.md), [PRD_agm-oee.md](PRD_agm-oee.md), [TECH_agm-oee.md](TECH_agm-oee.md)
 - 이 파일은 대화가 진행되면서 항목이 완료될 때마다 자동으로 `[x]`로 갱신됩니다. 사람이 직접 체크할 필요는 없습니다.
-- 마지막 갱신: 2026-09-25 (M0 완료)
+- 마지막 갱신: 2026-09-25 (M2 완료, M1은 실데이터 검증만 남음)
 
 ## M0. 프로젝트 뼈대
 - [x] git 저장소 초기화 + 최초 커밋 (기존 Python 파이프라인 + 문서 스냅샷)
@@ -23,12 +23,13 @@
 - [ ] SQLite 적재값이 `tests/test_analysis.py` 검증값과 일치 확인 (1라인 90.16% 등)
 
 ## M2. 디자인 시스템 연동
-- [ ] `sebang.css`를 `webapp/`에 연결, `app/layout.tsx` 글로벌 import
-- [ ] `tailwind.config.ts`에 `design.md` 시맨틱 토큰 매핑
-- [ ] 로고 SVG 컴포넌트화 (`components/SebangLogo.tsx`)
-- [ ] 공통 네비게이션(①③④⑤ 탭) + 전역 필터(기간/라인) 뼈대
-- [ ] 다크모드 토글(`data-theme`) 동작 확인
-- [ ] `react-plotly.js` 설치 및 최소 예제 차트 렌더 확인
+- [x] `sebang.css`를 `webapp/`에 연결 — `public/design/`에 복사(`npm run sync:design`) 후 `layout.tsx`에서 `<link>`로 로드 (Turbopack이 webapp/ 밖 경로 CSS @import를 막아 이 방식 채택)
+- [x] Tailwind v4 `@theme inline`으로 `design.md` 시맨틱 토큰 매핑 (색상·라운드·타입 스케일, `tailwind.config.ts` 대신 CSS 기반)
+- [x] 로고 SVG 컴포넌트화 (`components/SebangLogo.tsx`)
+- [x] 공통 네비게이션 — 탭 대신 **좌측 사이드바**로 결정(향후 화면 증가 대비, 사용자 확인 완료). `lib/nav.ts` 그룹 배열만 늘리면 새 화면군 추가되는 구조
+- [ ] 전역 필터(기간/라인) 뼈대 — M3에서 실제 화면과 함께 설계 예정(보류)
+- [x] 다크모드 토글(`data-theme`) 동작 확인 — CSS만으로 전환(React state 없이 hydration mismatch 회피), 스크린샷으로 라이트/다크/토글 클릭까지 확인
+- [x] `react-plotly.js` 설치 및 최소 예제 차트 렌더 확인 — `GaugeCard`로 인디케이터 게이지 렌더(더미 데이터), 프로덕션 빌드까지 통과
 
 ## M3. 화면 ① 현황판 (Andon)
 - [ ] KPI 카드 4종 집계 쿼리 작성
