@@ -64,7 +64,8 @@ npm run db:studio       # Drizzle Studio로 SQLite 내용 확인
 - `scripts/excel/`: `build_base.py`(원본 대사·일자별 가동율 시트, 엑셀 수식 기반) → `build_summary.py` → `build_agm_lines.py` 3단계로 엑셀 보고서를 만든다. **분류 규칙(라인 추출 정규식, 수동작업 패턴)이 `analysis.py`와 별도로 `build_base.py`에 중복 구현되어 있다** — 분류 규칙을 바꾸면 `config.py`와 `build_base.py`의 `MANUAL` 정규식을 함께 고쳐야 한다(장기적으로는 엔진으로 통합 권장).
 - `scripts/dashboard/gen_mockups.py`: `dashboard_data.json`을 읽어 대시보드 UI 목업 5종(HTML/SVG, `output/mockups/`)을 생성한다. 실제 값이 아니라 **디자인 레퍼런스**이며, 다음 개발 대상인 웹앱 화면 설계의 기준이다. ①현황판(Andon) ②설비 상태 타임라인(부동 발생 시각 데이터 없어 임의 배치 — 실사용 불가) ③라인×일 히트맵 ④로스 워터폴/파레토 ⑤추이(소형 다중 차트).
 - `tests/test_analysis.py`: 7월 검증값 회귀 테스트. `analysis.run_all()`의 월별 가동율·6대부동 합계·수동작업 제외분·기존 엑셀과의 공식 일치 여부·두 원본 파일 간 정합성을 검증한다. 산출 로직을 바꾸면 반드시 `pytest`로 확인한다.
-- `data/raw/`: SMES 원본 `.xls` 2종(작업공수관리일자, 부동공수 상세)을 두는 곳. 매월 교체되며 git에는 포함하지 않는다(`.gitignore` 확인).
+- `data/raw/`: SMES 원본 `.xls` 2종(작업공수관리일자, 부동공수 상세)을 두는 곳. git에는 포함하지 않는다(`.gitignore`의 `data/raw/`). 월별로 폴더를 나누지 않고 한 곳에 전부 모아두며(예: 7월·8월 원본이 함께 있음), `config.py`의 `SUMMARY_FILE`/`DETAIL_FILE`이 그중 어떤 파일을 쓸지 가리킨다.
+- `EBGC 라인가동율 대시보드/`(프로젝트 루트): 기존 "총시간생산성.xlsx"(월별) 등 참고용 자료. git에는 포함하지 않는다(`.gitignore`). 사용자가 로컬에 따로 두는 자료라 다른 환경엔 없을 수 있다.
 
 ## 기존 총시간생산성 엑셀과의 대응 (검증 완료)
 - 기존 "투입시간"은 SMES "순투입공수"와 같다.
