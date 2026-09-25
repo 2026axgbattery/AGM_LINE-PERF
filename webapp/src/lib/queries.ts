@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { db } from "@/db";
-import { allocation, lineDay } from "@/db/schema";
+import { allocation, lineDay, uploads } from "@/db/schema";
 import { LINES } from "./lines";
 import { LOSS_LABELS } from "./lossCategories";
 
@@ -325,4 +325,9 @@ export function getAllocationRows(monthOrAll: string, line: LineFilter) {
     .where(sql`${monthWhere} and ${lineClauseFor(allocation.line, line)}`)
     .orderBy(allocation.date, allocation.line)
     .all();
+}
+
+// ── /upload 화면 ──────────────────────────────────────────────
+export function getUploadHistory(limit = 10) {
+  return db.select().from(uploads).orderBy(sql`${uploads.id} desc`).limit(limit).all();
 }

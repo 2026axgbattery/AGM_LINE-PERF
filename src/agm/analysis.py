@@ -68,10 +68,10 @@ def allocate(d: pd.DataFrame) -> pd.DataFrame:
 
 
 # ── 3. 가동율 ───────────────────────────────────────────────
-def line_day(alloc: pd.DataFrame, plan=C.PLAN_MIN_PER_DAY) -> pd.DataFrame:
+def line_day(alloc: pd.DataFrame, plan=C.PLAN_MIN_PER_DAY, year=C.YEAR, month=C.MONTH) -> pd.DataFrame:
     """라인 × 일자 × 6대부동 시간(분)과 시간가동율."""
     a = alloc[alloc["반영구분"] == "가동율반영"]
-    days = pd.date_range(f"{C.YEAR}-{C.MONTH:02d}-01", periods=pd.Period(f"{C.YEAR}-{C.MONTH:02d}").days_in_month)
+    days = pd.date_range(f"{year}-{month:02d}-01", periods=pd.Period(f"{year}-{month:02d}").days_in_month)
     idx = pd.MultiIndex.from_product([C.LINES, days], names=["라인", "일자"])
     t = a.pivot_table(index=["라인", "일자"], columns="부동유형", values="배분시간분", aggfunc="sum")
     t = t.reindex(idx).reindex(columns=list(C.SIX_LOSSES.values())).fillna(0)
@@ -114,10 +114,14 @@ def process_kpi(summary: pd.DataFrame, kind="직접") -> dict:
     }
 
 
-def run_all():
-    """원본 → 분류 → 배분 → 가동율까지 한 번에."""
-    summary, detail = load_summary(), classify(load_detail())
+def run_all(summary_path=C.SUMMARY_FILE, detail_path=C.DETAIL_FILE, year=C.YEAR, month=C.MONTH):
+    """원본 → 분류 → 배분 → 가동율까지 한 번에.
+
+    인자를 안 주면 config.py 기본값(현재 산출 대상 월)과 완전히 동일하게 동작한다.
+    웹앱 업로드(여러 달)처럼 다른 파일·다른 달을 넘겨야 할 때만 인자로 override한다.
+    """
+    summary, detail = load_summary(summary_path), classify(load_detail(detail_path))
     alloc = allocate(detail)
-    ld = line_day(alloc)
+    ld = line_day(alloc, year=year, month=month)
     return {"summary": summary, "detail": detail, "alloc": alloc,
             "line_day": ld, "monthly": monthly(ld), "pareto": pareto(alloc), "kpi": process_kpi(summary)}

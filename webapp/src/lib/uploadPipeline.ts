@@ -16,9 +16,8 @@ export type ProcessUploadResult =
   | { ok: false; uploadId: number; error: string };
 
 // uploads 테이블에 상태(processing→done|error)를 기록하며 파이프라인을 실행한다 (PRD FR-1~5).
-// 주의: 지금은 src/agm/config.py에 고정된 연/월(YEAR, MONTH)로 Python이 실행되므로,
-// year/month/파일 경로는 현재 "기록용 메타데이터"일 뿐 실제 실행 대상을 바꾸지 않는다.
-// 여러 달을 실제로 파라미터화하는 것은 M5에서 config.py 확장과 함께 처리한다.
+// analysis.run_all()이 summary_path/detail_path/year/month를 받게 확장되어 있어서
+// (src/agm/analysis.py 참고) 실제로 이 달의 원본으로 계산하도록 넘긴다.
 export async function processUpload(input: ProcessUploadInput): Promise<ProcessUploadResult> {
   const [{ id: uploadId }] = db
     .insert(uploads)
@@ -33,7 +32,12 @@ export async function processUpload(input: ProcessUploadInput): Promise<ProcessU
     .returning({ id: uploads.id })
     .all();
 
-  const pythonResult = await runExportPipeline();
+  const pythonResult = await runExportPipeline({
+    summaryFile: input.summaryFile,
+    detailFile: input.detailFile,
+    year: input.year,
+    month: input.month,
+  });
   if (!pythonResult.ok) {
     db.update(uploads)
       .set({ status: "error", errorMessage: pythonResult.stderr })

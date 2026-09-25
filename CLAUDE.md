@@ -30,7 +30,7 @@ python scripts/dashboard/screenshot.py
 npm run ppt
 ```
 
-새 달 데이터를 돌릴 때는 `data/raw/`에 SMES 원본 2종을 넣고 `src/agm/config.py`의 `SUMMARY_FILE`, `DETAIL_FILE`, `EXCEL_OUT`, `MONTH`를 수정한 뒤 `python run_pipeline.py`를 실행한다. **SMES가 실제로 내려주는 파일명은 고정된 형식이 아니다** — 7월 검증 때 받은 파일명은 `SMES 작업공수관리(일자) _ 7월.xls`, `SMES 부동공수 상세_ 7월.xls`처럼 띄어쓰기·괄호가 들어있었다(README에 적힌 `SMES_작업공수관리일자_7월.xls` 같은 언더스코어 표기와 다름). `config.py`를 고칠 때 실제 파일명을 그대로 복사해 넣을 것 — 웹앱의 업로드 자동화(M5)도 이 점을 고려해야 한다.
+새 달 데이터를 CLI로 돌릴 때는 `data/raw/`에 SMES 원본 2종을 넣고 `src/agm/config.py`의 `SUMMARY_FILE`, `DETAIL_FILE`, `EXCEL_OUT`, `MONTH`를 수정한 뒤 `python run_pipeline.py`를 실행한다(엑셀 3종·목업까지 전부 만들 때). 웹앱만 갱신하면 되면 `python scripts/export_data.py --summary <경로> --detail <경로> --year <YYYY> --month <M>`처럼 인자로 넘길 수 있다(인자를 안 주면 config.py 기본값 그대로, 웹앱의 `/upload` 업로드도 내부적으로 이 인자들을 씀 — `src/agm/analysis.py`의 `run_all()`이 받는다). **SMES가 실제로 내려주는 파일명은 고정된 형식이 아니다** — 7월 검증 때 받은 파일명은 `SMES 작업공수관리(일자) _ 7월.xls`, `SMES 부동공수 상세_ 7월.xls`처럼 띄어쓰기·괄호가 들어있었다(README에 적힌 `SMES_작업공수관리일자_7월.xls` 같은 언더스코어 표기와 다름). `config.py`를 고칠 때 실제 파일명을 그대로 복사해 넣을 것.
 
 **`requirements.txt`의 `pandas<3` 고정을 풀지 말 것.** `tests/test_analysis.py`의 회귀값은 pandas 2.x 기준으로 검증됐다. pandas 3.0으로 올리면 `pip install`은 조용히 성공하지만 수치가 달라질 수 있으니, 버전을 바꾸려면 반드시 `pytest`로 7월 값이 그대로인지 먼저 확인한다.
 
@@ -58,7 +58,7 @@ npm run db:studio       # Drizzle Studio로 SQLite 내용 확인
 
 ## 구조와 데이터 흐름
 - `src/agm/config.py`: 모든 기준값과 경로(파일 경로, 계획시간, 6대부동 매핑, 라인/제외/수동작업 정규식). 기준을 바꿀 때는 여기부터 고친다.
-- `src/agm/analysis.py`: 산출 엔진. 새 기능은 여기에 함수로 추가한다. 파이프라인은 `load_summary/load_detail`(원본 읽기) → `classify`(부동 1건마다 대상라인·관리구분 판정) → `allocate`(라인별 배분 테이블 생성) → `line_day`(라인×일자 가동율) → `monthly`(월 합계) 순이며, `run_all()`이 전체를 한 번에 실행하고 결과를 dict로 반환한다(`summary`, `detail`, `alloc`, `line_day`, `monthly`, `pareto`, `kpi`).
+- `src/agm/analysis.py`: 산출 엔진. 새 기능은 여기에 함수로 추가한다. 파이프라인은 `load_summary/load_detail`(원본 읽기) → `classify`(부동 1건마다 대상라인·관리구분 판정) → `allocate`(라인별 배분 테이블 생성) → `line_day`(라인×일자 가동율) → `monthly`(월 합계) 순이며, `run_all()`이 전체를 한 번에 실행하고 결과를 dict로 반환한다(`summary`, `detail`, `alloc`, `line_day`, `monthly`, `pareto`, `kpi`). `run_all(summary_path, detail_path, year, month)`와 `line_day(alloc, plan, year, month)`는 인자를 안 주면 `config.py` 기본값과 완전히 같게 동작한다 — 웹앱이 다른 달을 처리할 때만 override한다(M5).
 - `run_pipeline.py`: `scripts/export_data.py` → `scripts/excel/build_base.py` → `build_summary.py` → `build_agm_lines.py` → `scripts/dashboard/gen_mockups.py` 순서로 실행하는 진입점. 각 스크립트는 독립 실행 가능하며 모두 `output/`에 결과를 쓴다.
 - `scripts/export_data.py`: `analysis.run_all()` 결과를 `output/agm_line_day.csv`, `agm_monthly.csv`, `agm_allocation.csv`, `dashboard_data.json`으로 내보낸다. **웹앱/대시보드는 이 산출물을 입력으로 쓴다.**
 - `scripts/excel/`: `build_base.py`(원본 대사·일자별 가동율 시트, 엑셀 수식 기반) → `build_summary.py` → `build_agm_lines.py` 3단계로 엑셀 보고서를 만든다. **분류 규칙(라인 추출 정규식, 수동작업 패턴)이 `analysis.py`와 별도로 `build_base.py`에 중복 구현되어 있다** — 분류 규칙을 바꾸면 `config.py`와 `build_base.py`의 `MANUAL` 정규식을 함께 고쳐야 한다(장기적으로는 엔진으로 통합 권장).
@@ -81,7 +81,10 @@ Next.js(App Router, TypeScript) + SQLite(Drizzle ORM) 웹 서비스 계층. 계�
 - `webapp/src/lib/runPython.ts`: `child_process.execFile`로 `.venv`의 python을 실행해 `scripts/export_data.py`를 돌린다. 실패 시 stderr를 그대로 반환(재계산 로직 없음, 실행만 함).
 - `webapp/src/lib/ingest.ts`: `output/agm_line_day.csv`·`agm_allocation.csv`를 읽어 SQLite에 upsert. 같은 날짜의 기존 행은 지우고 다시 넣는 방식이라 재업로드 시 자동으로 덮어써진다. **여기서 가동율을 다시 계산하지 않는다** — 재계산이 필요하면 `analysis.py`를 고쳐야 한다. CSV를 `csv-parse`로 읽을 때 `bom: true`가 반드시 필요하다 — `export_data.py`가 엑셀 호환을 위해 utf-8-sig(BOM 포함)로 저장하는데, BOM을 안 벗기면 첫 컬럼명 앞에 보이지 않는 문자가 붙어 `r["라인"]`이 조용히 `undefined`가 된다(실제로 한 번 겪은 버그).
 - `webapp/src/lib/uploadPipeline.ts`: `runPython`+`ingest`를 묶어 `uploads` 테이블 상태(processing→done/error)까지 기록한다. M5 업로드 Server Action이 이 함수를 그대로 재사용할 예정.
-- `webapp/scripts/ingest-once.ts` (`npm run ingest:once`): 위 파이프라인 전체를 한 번에 실행하는 수동 검증용 CLI.
+- `webapp/scripts/ingest-once.ts` (`npm run ingest:once [-- --year 2026 --month 8]`): 위 파이프라인 전체를 한 번에 실행하는 수동 검증용 CLI. `FILES` 맵에 그 달 원본 파일명이 등록돼 있어야 한다.
+- `webapp/src/app/upload/actions.ts`(Server Action `uploadAction`) + `components/UploadForm.tsx`(`useActionState`): 파일 2종을 받아 `lib/validateUpload.ts`로 1차 형식 검증 → summary 파일의 `일자별` 컬럼에서 연/월 자동 인식(PRD FR-2) → 이미 있는 달이면 `needs-confirm` 상태로 멈추고, 사용자가 파일을 **다시 선택**하고 확인 버튼을 눌러야 진행된다(FR-3) — 브라우저가 Server Action 응답 후 `<input type=file>`을 비우기 때문에 재선택이 실제로 필요하다(한 번 겪고 확인함). 통과하면 `data/raw/upload_<연>-<월>_{summary,detail}.xls`로 저장 후 `uploadPipeline.processUpload()` 호출.
+- `webapp/src/lib/validateUpload.ts`: SheetJS(`xlsx`)로 헤더 행만 읽어 필수 컬럼 확인. **npm에 공개된 `xlsx` 패키지는 패치 안 된 고위험 취약점(프로토타입 오염·ReDoS)이 있어 쓰지 않는다** — `package.json`의 `xlsx`는 `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`(SheetJS 공식 CDN, 패치됨)를 가리킨다. 업데이트할 때도 이 CDN에서 최신 버전을 받을 것, `npm install xlsx`로 되돌리지 말 것.
+- `/upload` 페이지는 `export const dynamic = "force-dynamic"`이 붙어 있다 — DB를 읽지만(`getUploadHistory`) searchParams 같은 동적 신호가 없어 Next가 빌드 타임에 정적 스냅샷으로 굳힐 수 있어서다.
 - `webapp/CLAUDE.md`/`webapp/AGENTS.md`: Next.js가 `next dev`/`next build` 때마다 자동으로 다시 써넣는 파일(버전별 API 차이를 알려주는 용도). 손으로 고치지 않는다.
 
 ### 화면 (`webapp/`)

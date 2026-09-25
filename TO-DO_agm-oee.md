@@ -2,7 +2,7 @@
 
 - 관련 문서: [PLAN_agm-oee.md](PLAN_agm-oee.md), [PRD_agm-oee.md](PRD_agm-oee.md), [TECH_agm-oee.md](TECH_agm-oee.md)
 - 이 파일은 대화가 진행되면서 항목이 완료될 때마다 자동으로 `[x]`로 갱신됩니다. 사람이 직접 체크할 필요는 없습니다.
-- 마지막 갱신: 2026-09-25 (M1~M4 완료, M5 시작 예정)
+- 마지막 갱신: 2026-09-25 (M1~M5 완료, M6 시작 예정)
 
 ## M0. 프로젝트 뼈대
 - [x] git 저장소 초기화 + 최초 커밋 (기존 Python 파이프라인 + 문서 스냅샷)
@@ -48,11 +48,12 @@
 - [x] 내보내기 기능 (FR-14) — CSV는 `/api/export/line-day`, `/api/export/allocation` 라우트(`ExportLinks`), PNG는 Plotly 차트 툴바의 기본 카메라 아이콘으로 대체(별도 구현 불필요)
 
 ## M5. 업로드/에러 처리 UX
-- [ ] `/upload` 페이지 (파일 2종 업로드 Server Action)
-- [ ] SheetJS 1차 형식 검증
-- [ ] 처리 상태(processing/done/error) 화면 노출
-- [ ] 재업로드 시 덮어쓰기 확인 (FR-3)
-- [ ] 다중 월 누적 + 기간 선택 조회 (FR-4)
+- [x] `/upload` 페이지 (파일 2종 업로드 Server Action, `useActionState`) — 실제 8월 원본으로 브라우저 업로드까지 확인
+- [x] SheetJS(xlsx) 1차 형식 검증 — 필수 컬럼 확인 + `일자별` 컬럼에서 연/월 자동 인식(FR-2). **npm의 `xlsx` 패키지는 패치 안 된 고위험 취약점(프로토타입 오염·ReDoS)이 있어 SheetJS 공식 CDN 빌드(`cdn.sheetjs.com`)로 대체**
+- [x] 처리 상태(processing/done/error) 화면 노출 — 업로드 폼 결과 메시지 + "최근 업로드" 이력 표(`getUploadHistory`)
+- [x] 재업로드 시 덮어쓰기 확인 (FR-3) — `needs-confirm` 상태로 1차 저지, 파일 재선택 후 확인 버튼으로 진행. 실제로 8월을 두 번 업로드해 덮어쓰기(중복 없이 124행 유지)까지 확인
+- [x] 다중 월 누적 + 기간 선택 조회 (FR-4) — **`analysis.run_all()`/`export_data.py`를 연/월·경로 인자를 받도록 확장**(기본값은 기존과 동일, pytest 5종 재확인). 실제로 7월+8월이 DB에 함께 쌓였고 ⑤추이 "전체 기간"이 7→8월 경계를 이어서 보여주는 것까지 확인
+- [x] (부수 발견) `/upload` 페이지가 DB를 읽는데도 정적 페이지로 빌드돼 업로드 후 이력이 갱신 안 될 위험 → `export const dynamic = "force-dynamic"`으로 고정
 
 ## M6. 테스트 · 품질
 - [ ] Vitest: `lib/ingest.ts` 및 집계 쿼리 단위 테스트
