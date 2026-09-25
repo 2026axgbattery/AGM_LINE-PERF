@@ -1,26 +1,75 @@
+/* 세방 CI 색상·폰트 변수는 여기서 다시 적지 않는다 — design.md가 유일한 근거 문서.
+   실제 값은 public/design/sebang.css로 복사되어 layout.tsx의 <link>로 로드된다.
+   (Turbopack이 webapp/ 밖의 파일을 @import 하지 못하게 막아서 CSS @import 대신 이 방식을 쓴다.
+   원본을 고치면 `npm run sync:design`을 다시 실행해야 한다.) */
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* data-theme="dark"를 <html>에 붙이면 dark: 유틸리티가 적용되게 한다 (시스템 설정이 아니라 수동 토글 기준). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* sebang.css의 :root 변수를 Tailwind 유틸리티(bg-bg-base, text-accent-primary 등)로 노출.
+     "inline"이라 런타임에 :root[data-theme="dark"] 값으로 바뀌는 것도 그대로 반영된다. */
+  --color-bg-base: var(--color-bg-base);
+  --color-bg-surface: var(--color-bg-surface);
+  --color-border: var(--color-border);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-disabled: var(--color-text-disabled);
+  --color-accent-primary: var(--color-accent-primary);
+  --color-accent-secondary: var(--color-accent-secondary);
+  --color-success: var(--color-success);
+  --color-danger: var(--color-danger);
+  --font-sans: var(--font-family-base);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-full: var(--radius-full);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* design.md 3.3절 타입 스케일 — size+line-height+weight를 묶어서 그대로 클래스로 노출한다. */
+@utility text-display {
+  font-size: 2.5rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+@utility text-h1 {
+  font-size: 2rem;
+  line-height: 1.25;
+  font-weight: 700;
+}
+@utility text-h2 {
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 700;
+}
+@utility text-h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  font-weight: 600;
+}
+@utility text-body {
+  font-size: 1rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+@utility text-body-sm {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  font-weight: 400;
+}
+@utility text-caption {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  font-weight: 400;
+}
+@utility text-button {
+  font-size: 0.9375rem;
+  line-height: 1;
+  font-weight: 600;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
 }
