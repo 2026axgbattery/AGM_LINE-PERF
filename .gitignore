@@ -8,6 +8,9 @@ data/raw/
 .DS_Store
 __MACOSX/
 
+# 기존 총시간생산성 엑셀 등 참고용 원본 (git 추적 안 함, 로컬 참고 자료)
+EBGC 라인가동율 대시보드/
+
 # webapp (Next.js)
 webapp/.next/
 webapp/node_modules/
