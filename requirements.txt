@@ -1,0 +1,5 @@
+pandas>=2.0
+openpyxl>=3.1
+xlrd>=2.0.1        # SMES .xls 읽기
+pytest>=8.0
+playwright>=1.40   # (선택) 대시보드 예시 PNG 캡처

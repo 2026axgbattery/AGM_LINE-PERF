@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+node_modules/
+output/
+*.pyc
+~$*
+.DS_Store
+__MACOSX/
+
+# webapp (Next.js)
+webapp/.next/
+webapp/node_modules/
+webapp/data/*.sqlite
+webapp/.env*.local

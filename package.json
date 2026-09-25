@@ -1,0 +1,10 @@
+{
+  "name": "agm-oee-verify-ppt",
+  "private": true,
+  "scripts": {
+    "ppt": "node scripts/verify_ppt/build.js"
+  },
+  "dependencies": {
+    "pptxgenjs": "^3.12.0"
+  }
+}
