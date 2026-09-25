@@ -1,4 +1,4 @@
-pandas>=2.0
+pandas>=2.0,<3   # analysis.py 검증(7월 회귀 테스트)이 pandas 2.x 기준. 3.0은 재검증 전 사용 금지
 openpyxl>=3.1
 xlrd>=2.0.1        # SMES .xls 읽기
 pytest>=8.0
