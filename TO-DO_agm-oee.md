@@ -2,15 +2,16 @@
 
 - 관련 문서: [PLAN_agm-oee.md](PLAN_agm-oee.md), [PRD_agm-oee.md](PRD_agm-oee.md), [TECH_agm-oee.md](TECH_agm-oee.md)
 - 이 파일은 대화가 진행되면서 항목이 완료될 때마다 자동으로 `[x]`로 갱신됩니다. 사람이 직접 체크할 필요는 없습니다.
-- 마지막 갱신: 2026-09-25 (아직 개발 착수 전 — 전 항목 미완료)
+- 마지막 갱신: 2026-09-25 (M0 완료)
 
 ## M0. 프로젝트 뼈대
-- [ ] Node.js 22 LTS 설치 확인
-- [ ] `webapp/`에 Next.js(App Router, TypeScript, Tailwind) 프로젝트 생성
-- [ ] `better-sqlite3`, `drizzle-orm`, `drizzle-kit` 설치
-- [ ] `db/schema.ts` 초안 작성 (uploads, line_day, allocation)
-- [ ] 첫 drizzle 마이그레이션 실행 → `data/agm_oee.sqlite` 생성 확인
-- [ ] 빈 레이아웃/페이지로 `npm run dev` 구동 확인
+- [x] git 저장소 초기화 + 최초 커밋 (기존 Python 파이프라인 + 문서 스냅샷)
+- [x] Node.js 설치 확인 (v24.20.0 — 설치된 버전 그대로 사용하기로 결정, LTS 22 아님)
+- [x] `webapp/`에 Next.js(App Router, TypeScript, Tailwind, src/ 디렉터리) 프로젝트 생성 — Next.js 16.3.6
+- [x] `better-sqlite3`, `drizzle-orm`, `drizzle-kit` 설치
+- [x] `db/schema.ts` 초안 작성 (uploads, line_day, allocation)
+- [x] 첫 drizzle 마이그레이션 실행 → `data/agm_oee.sqlite` 생성 확인 (테이블 3개 확인 완료)
+- [x] 빈 레이아웃/페이지로 `npm run dev` 구동 확인 (HTTP 200, Turbopack)
 
 ## M1. 데이터 적재 파이프라인
 - [ ] `lib/runPython.ts` 작성 (child_process로 `scripts/export_data.py` 실행)

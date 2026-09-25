@@ -26,8 +26,8 @@
 
 | 영역 | 선택 | 대안(검토했지만 제외) |
 |---|---|---|
-| 런타임 | **Node.js 22 LTS** (TypeScript) | — (사용자 전제) |
-| 풀스택 프레임워크 | **Next.js 15 (App Router)** | Express+React(SPA) — API/프론트 저장소·배포가 둘로 나뉘어 이 규모엔 과함 |
+| 런타임 | **Node.js** (TypeScript) — 개발 PC 설치본 v24.20.0 사용 | — (사용자 전제) |
+| 풀스택 프레임워크 | **Next.js 16 (App Router, Turbopack 기본)** | Express+React(SPA) — API/프론트 저장소·배포가 둘로 나뉘어 이 규모엔 과함 |
 | 데이터베이스 | **SQLite** (전제) | — |
 | DB 드라이버 | **better-sqlite3** | node:sqlite(실험적, LTS 안정성 부족), sql.js(브라우저용) |
 | ORM/쿼리 빌더 | **Drizzle ORM** + drizzle-kit(마이그레이션) | Prisma — SQLite 동시쓰기·마이그레이션 유연성이 Drizzle보다 떨어짐 |
@@ -175,7 +175,7 @@ app/
 ## 8. 실행/배포
 
 ```powershell
-# 웹앱 최초 설정 (Node.js 22 LTS 설치 후)
+# 웹앱 최초 설정 (Node.js 설치 후)
 cd webapp        # 아래 8.2 폴더 구조 참고
 npm install
 npm run db:migrate     # drizzle-kit migrate
