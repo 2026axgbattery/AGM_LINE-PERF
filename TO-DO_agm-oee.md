@@ -17,9 +17,9 @@
 - [x] `lib/runPython.ts` 작성 (child_process로 `scripts/export_data.py` 실행) — 에러 처리까지 동작 확인
 - [x] `lib/ingest.ts` 작성 (CSV → SQLite upsert, 재계산 없음) — import/트랜잭션 배선 확인
 - [x] Python venv pandas 버전을 3.x→2.x로 고정 (회귀 검증 기준과 불일치 위험 방지)
-- [ ] `uploads` 상태(processing/done/error) 기록 로직 (지금은 CLI 스크립트만 있고 uploads 테이블 연동 전)
+- [x] `uploads` 상태(processing/done/error) 기록 로직 — `lib/uploadPipeline.ts`, status='error' 기록까지 실제 확인
 - [ ] 7월 데이터로 수동 1회 실행 검증 — **실제 SMES 원본 파일 필요 (data/raw/에 아직 없음, 사용자 확보 대기)**
-- [ ] 분류 경고("부동>계획" 등) 처리 방식 반영 (PRD FR-5)
+- [x] 분류 경고("부동>계획" 등) 처리 방식 반영 (PRD FR-5) — `line_day.warning` 컬럼 + `IngestResult.warnings`로 노출
 - [ ] SQLite 적재값이 `tests/test_analysis.py` 검증값과 일치 확인 (1라인 90.16% 등)
 
 ## M2. 디자인 시스템 연동

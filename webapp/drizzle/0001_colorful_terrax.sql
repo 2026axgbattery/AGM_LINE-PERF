@@ -1,0 +1,1 @@
+ALTER TABLE `line_day` ADD `warning` text;

@@ -29,6 +29,7 @@ export const lineDay = sqliteTable(
     planMinutes: real("plan_minutes").notNull(),
     operatingMinutes: real("operating_minutes").notNull(),
     operatingRate: real("operating_rate").notNull(),
+    warning: text("warning"), // analysis.line_day()의 '확인' 컬럼 ("부동>계획 확인" 등). 없으면 null (PRD FR-5)
   },
   (t) => [
     index("line_day_line_date_idx").on(t.line, t.date),

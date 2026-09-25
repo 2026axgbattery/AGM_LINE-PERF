@@ -30,6 +30,7 @@ interface LineDayRow {
   planMinutes: number;
   operatingMinutes: number;
   operatingRate: number;
+  warning: string | null;
 }
 
 interface AllocationRow {
@@ -58,6 +59,7 @@ function parseLineDayCsv(csvText: string): LineDayRow[] {
     planMinutes: num(r["계획가동시간"]),
     operatingMinutes: num(r["가동시간"]),
     operatingRate: num(r["시간가동율"]),
+    warning: r["확인"]?.trim() ? r["확인"].trim() : null,
   }));
 }
 
@@ -81,6 +83,7 @@ export interface IngestResult {
   lineDayRows: number;
   allocationRows: number;
   dates: string[];
+  warnings: { line: string; date: string; warning: string }[];
 }
 
 // output/agm_line_day.csv, agm_allocation.csv(scripts/export_data.py 산출물)를 읽어
@@ -108,5 +111,9 @@ export function ingestFromOutput(): IngestResult {
     }
   });
 
-  return { lineDayRows: lineDayRows.length, allocationRows: allocationRows.length, dates };
+  const warnings = lineDayRows
+    .filter((r) => r.warning)
+    .map((r) => ({ line: r.line, date: r.date, warning: r.warning as string }));
+
+  return { lineDayRows: lineDayRows.length, allocationRows: allocationRows.length, dates, warnings };
 }
