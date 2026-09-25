@@ -32,6 +32,18 @@ npm run ppt
 
 새 달 데이터를 돌릴 때는 `data/raw/`에 SMES 원본 2종을 넣고 `src/agm/config.py`의 `SUMMARY_FILE`, `DETAIL_FILE`, `EXCEL_OUT`, `MONTH`를 수정한 뒤 `python run_pipeline.py`를 실행한다.
 
+**`requirements.txt`의 `pandas<3` 고정을 풀지 말 것.** `tests/test_analysis.py`의 회귀값은 pandas 2.x 기준으로 검증됐다. pandas 3.0으로 올리면 `pip install`은 조용히 성공하지만 수치가 달라질 수 있으니, 버전을 바꾸려면 반드시 `pytest`로 7월 값이 그대로인지 먼저 확인한다.
+
+### 웹앱 (`webapp/`, 개발 중)
+```powershell
+cd webapp
+npm install
+npm run db:migrate      # drizzle-kit migrate — data/agm_oee.sqlite 생성
+npm run dev             # 개발 서버 (Turbopack, http://localhost:3000)
+npm run ingest:once     # Python 파이프라인 실행 + CSV → SQLite 적재 수동 1회 실행 (검증용)
+npm run db:studio       # Drizzle Studio로 SQLite 내용 확인
+```
+
 ## 핵심 규칙 (사용자 확정 — 임의 변경 금지)
 - GC라인·반자동라인은 모든 분석에서 제외한다.
 - 라인 명칭: 1~4라인 → "AGM조립1라인" ~ "AGM조립4라인".
@@ -60,8 +72,18 @@ npm run ppt
 - 공수가동율 = 1 − 기존 6대부동률이다.
 - 7월 수치 차이는 추출 시점 차이다(기존 파일은 7/31 미반영, 설비부동 사후 수정 전).
 
+## 웹앱 (`webapp/`)
+Next.js(App Router, TypeScript) + SQLite(Drizzle ORM) 웹 서비스 계층. 계산 로직은 옮기지 않고 Python(`analysis.py`)이 그대로 담당하며, 웹앱은 그 결과를 저장·조회·시각화만 한다(이유는 `TECH_agm-oee.md` 1.1절). 개발 계획·현재 진행 상황은 [PLAN_agm-oee.md](PLAN_agm-oee.md)/[TO-DO_agm-oee.md](TO-DO_agm-oee.md) 참고.
+
+- `webapp/src/db/schema.ts`: Drizzle 테이블 정의(`uploads`, `lineDay`, `allocation`). `lineDay`/`allocation`은 `output/agm_line_day.csv`, `agm_allocation.csv`의 컬럼을 그대로 옮긴 것이라 컬럼을 추가하려면 먼저 `analysis.py`/`export_data.py` 쪽에 값이 있는지부터 확인한다.
+- `webapp/src/lib/paths.ts`: 프로젝트 루트·`.venv` 파이썬·`output/` 경로를 계산. `webapp/`이 항상 루트 바로 아래에 있다고 전제(`AGM_OEE_PROJECT_ROOT` 환경변수로 재정의 가능).
+- `webapp/src/lib/runPython.ts`: `child_process.execFile`로 `.venv`의 python을 실행해 `scripts/export_data.py`를 돌린다. 실패 시 stderr를 그대로 반환(재계산 로직 없음, 실행만 함).
+- `webapp/src/lib/ingest.ts`: `output/agm_line_day.csv`·`agm_allocation.csv`를 읽어 SQLite에 upsert. 같은 날짜의 기존 행은 지우고 다시 넣는 방식이라 재업로드 시 자동으로 덮어써진다. **여기서 가동율을 다시 계산하지 않는다** — 재계산이 필요하면 `analysis.py`를 고쳐야 한다.
+- `webapp/scripts/ingest-once.ts` (`npm run ingest:once`): 위 두 단계(Python 실행 → CSV 적재)를 한 번에 실행하는 수동 검증용 CLI.
+- `webapp/CLAUDE.md`/`webapp/AGENTS.md`: Next.js가 `next dev`/`next build` 때마다 자동으로 다시 써넣는 파일(버전별 API 차이를 알려주는 용도). 손으로 고치지 않는다.
+
 ## 다음 할 일
-1. 대시보드 웹앱(Streamlit 권장)을 만든다. 첫 화면은 ①, 상세 화면은 ③④⑤로 구성한다. 요구사항은 [PRD_agm-oee.md](PRD_agm-oee.md) 참고(②설비 상태 타임라인은 부동 발생 시각 데이터가 없어 이번 범위 제외).
+1. 대시보드 웹앱(`webapp/`, Next.js+SQLite — 아래 참고)을 만든다. 첫 화면은 ①, 상세 화면은 ③④⑤로 구성한다. 요구사항은 [PRD_agm-oee.md](PRD_agm-oee.md), 기술 선택 근거는 [TECH_agm-oee.md](TECH_agm-oee.md) 참고(②설비 상태 타임라인은 부동 발생 시각 데이터가 없어 이번 범위 제외).
 2. 여러 달 데이터와 누계를 처리한다.
 3. 생산실적·25년 라우팅·파견 상세를 추가해 원단위와 총시간 생산성을 산출한다.
 4. 부동 발생시각을 확보한 뒤 설비 상태 타임라인과 OEE로 확장한다.
