@@ -1,11 +1,20 @@
 import { sql } from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { db } from "@/db";
-import { lineDay } from "@/db/schema";
+import { allocation, lineDay } from "@/db/schema";
 import { LINES } from "./lines";
+import { LOSS_LABELS } from "./lossCategories";
+
+export const ALL_LINES = "all" as const;
+export type LineFilter = string | undefined; // undefined 또는 "all" = 전체 라인 (FR-13)
 
 function monthClause(month: string) {
   // date는 'YYYY-MM-DD' — 앞 7자리로 월 필터링
   return sql`substr(${lineDay.date}, 1, 7) = ${month}`;
+}
+
+function selectedLines(line: LineFilter): readonly string[] {
+  return !line || line === ALL_LINES ? LINES : [line];
 }
 
 // DB에 적재된 월 목록 (최신월 먼저). 지금은 보통 1개월치만 있지만 여러 달이 쌓이면 그대로 늘어난다.
@@ -130,4 +139,190 @@ export function getKpiSummary(month: string, target: number): KpiSummary {
     belowTargetDays: totalRow?.belowTargetDays ?? 0,
     totalLineDays: totalRow?.totalLineDays ?? 0,
   };
+}
+
+// ── ③ 히트맵 ──────────────────────────────────────────────────
+export interface HeatmapData {
+  lines: string[];
+  dates: string[];
+  rates: Record<string, number[]>; // line -> dates 순서의 시간가동율
+  overallRates: number[] | null; // 라인 전체 선택일 때만 종합 라인 (dates 순서)
+  categoryTotals: { line: string; values: number[] }[]; // values는 LOSS_LABELS 순서 (월 합계, 분)
+}
+
+export function getHeatmapData(month: string, line: LineFilter): HeatmapData {
+  const lines = selectedLines(line);
+
+  const dates = db
+    .select({ date: lineDay.date })
+    .from(lineDay)
+    .where(monthClause(month))
+    .groupBy(lineDay.date)
+    .orderBy(lineDay.date)
+    .all()
+    .map((r) => r.date);
+
+  const rates: Record<string, number[]> = {};
+  for (const l of lines) {
+    const rows = db
+      .select({ date: lineDay.date, rate: lineDay.operatingRate })
+      .from(lineDay)
+      .where(sql`${lineDay.line} = ${l} and ${monthClause(month)}`)
+      .orderBy(lineDay.date)
+      .all();
+    const byDate = new Map(rows.map((r) => [r.date, r.rate]));
+    rates[l] = dates.map((d) => byDate.get(d) ?? 0);
+  }
+
+  let overallRates: number[] | null = null;
+  if (!line || line === ALL_LINES) {
+    const rows = db
+      .select({
+        date: lineDay.date,
+        planMinutes: sql<number>`sum(${lineDay.planMinutes})`,
+        operatingMinutes: sql<number>`sum(${lineDay.operatingMinutes})`,
+      })
+      .from(lineDay)
+      .where(monthClause(month))
+      .groupBy(lineDay.date)
+      .orderBy(lineDay.date)
+      .all();
+    const byDate = new Map(rows.map((r) => [r.date, r.planMinutes > 0 ? r.operatingMinutes / r.planMinutes : 0]));
+    overallRates = dates.map((d) => byDate.get(d) ?? 0);
+  }
+
+  const totalsByLine = new Map(getLineMonthTotals(month).map((t) => [t.line, t]));
+  const categoryTotals = lines.map((l) => {
+    const t = totalsByLine.get(l);
+    return {
+      line: l,
+      values: LOSS_LABELS.map(({ key }) => t?.[key] ?? 0),
+    };
+  });
+
+  return { lines: [...lines], dates, rates, overallRates, categoryTotals };
+}
+
+// ── ③ 드릴다운: 특정 라인·일자의 부동 상세 (FR-10) ──────────────
+export interface AllocationDetail {
+  lossCategory: string;
+  lossDetail: string;
+  detailText: string;
+  minutesAllocated: number;
+  allocationRatio: number;
+  isManualExcluded: boolean;
+}
+
+export function getDayDetail(date: string, line: string): AllocationDetail[] {
+  return db
+    .select({
+      lossCategory: allocation.lossCategory,
+      lossDetail: allocation.lossDetail,
+      detailText: allocation.detailText,
+      minutesAllocated: allocation.minutesAllocated,
+      allocationRatio: allocation.allocationRatio,
+      isManualExcluded: allocation.isManualExcluded,
+    })
+    .from(allocation)
+    .where(sql`${allocation.date} = ${date} and ${allocation.line} = ${line}`)
+    .orderBy(sql`${allocation.minutesAllocated} desc`)
+    .all();
+}
+
+// ── ④ 로스 워터폴/파레토 ──────────────────────────────────────
+export interface LossBreakdown {
+  planMinutes: number;
+  operatingMinutes: number;
+  categories: { label: string; minutes: number }[]; // 큰 순서
+}
+
+export function getLossBreakdown(month: string, line: LineFilter): LossBreakdown {
+  const lines = new Set(selectedLines(line));
+  const rows = getLineMonthTotals(month).filter((t) => lines.has(t.line));
+
+  const planMinutes = rows.reduce((s, r) => s + r.planMinutes, 0);
+  const operatingMinutes = rows.reduce((s, r) => s + r.operatingMinutes, 0);
+  const categories = LOSS_LABELS.map(({ key, label }) => ({
+    label,
+    minutes: rows.reduce((s, r) => s + (r[key] ?? 0), 0),
+  })).sort((a, b) => b.minutes - a.minutes);
+
+  return { planMinutes, operatingMinutes, categories };
+}
+
+export interface ParetoItem {
+  detail: string;
+  minutes: number;
+  cumulativeRatio: number;
+}
+
+export function getPareto(month: string, line: LineFilter, topN: number): ParetoItem[] {
+  const rows = db
+    .select({ detail: allocation.lossDetail, minutes: sql<number>`sum(${allocation.minutesAllocated})` })
+    .from(allocation)
+    .where(
+      sql`substr(${allocation.date}, 1, 7) = ${month} and ${allocation.isManualExcluded} = 0 and ${lineClauseFor(allocation.line, line)}`,
+    )
+    .groupBy(allocation.lossDetail)
+    .orderBy(sql`sum(${allocation.minutesAllocated}) desc`)
+    .all();
+
+  const total = rows.reduce((s, r) => s + r.minutes, 0) || 1;
+  let cum = 0;
+  return rows.slice(0, topN).map((r) => {
+    cum += r.minutes;
+    return { detail: r.detail, minutes: r.minutes, cumulativeRatio: cum / total };
+  });
+}
+
+function lineClauseFor(col: SQLiteColumn, line: LineFilter) {
+  return !line || line === ALL_LINES ? sql`1=1` : sql`${col} = ${line}`;
+}
+
+// ── ⑤ 추이 ─────────────────────────────────────────────────
+export interface TrendSeries {
+  line: string;
+  dates: string[];
+  rates: number[];
+}
+
+// monthOrAll: 특정 "YYYY-MM" 또는 "all"(적재된 전체 기간, FR-12)
+export function getTrendSeries(monthOrAll: string, line: LineFilter): TrendSeries[] {
+  const lines = selectedLines(line);
+  const where =
+    monthOrAll === "all"
+      ? sql`1=1`
+      : sql`substr(${lineDay.date}, 1, 7) = ${monthOrAll}`;
+
+  return lines.map((l) => {
+    const rows = db
+      .select({ date: lineDay.date, rate: lineDay.operatingRate })
+      .from(lineDay)
+      .where(sql`${lineDay.line} = ${l} and ${where}`)
+      .orderBy(lineDay.date)
+      .all();
+    return { line: l, dates: rows.map((r) => r.date), rates: rows.map((r) => r.rate) };
+  });
+}
+
+// ── 내보내기 (FR-14) — 화면에 쓰는 것과 같은 조건으로 원본에 가까운 행을 그대로 낸다 ──
+// monthOrAll: 특정 "YYYY-MM" 또는 "all"(⑤추이의 전체 기간 내보내기용)
+export function getLineDayRows(monthOrAll: string, line: LineFilter) {
+  const monthWhere = monthOrAll === "all" ? sql`1=1` : monthClause(monthOrAll);
+  return db
+    .select()
+    .from(lineDay)
+    .where(sql`${monthWhere} and ${lineClauseFor(lineDay.line, line)}`)
+    .orderBy(lineDay.line, lineDay.date)
+    .all();
+}
+
+export function getAllocationRows(monthOrAll: string, line: LineFilter) {
+  const monthWhere = monthOrAll === "all" ? sql`1=1` : sql`substr(${allocation.date}, 1, 7) = ${monthOrAll}`;
+  return db
+    .select()
+    .from(allocation)
+    .where(sql`${monthWhere} and ${lineClauseFor(allocation.line, line)}`)
+    .orderBy(allocation.date, allocation.line)
+    .all();
 }

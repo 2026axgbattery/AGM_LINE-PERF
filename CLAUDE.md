@@ -85,9 +85,13 @@ Next.js(App Router, TypeScript) + SQLite(Drizzle ORM) 웹 서비스 계층. 계�
 - `webapp/CLAUDE.md`/`webapp/AGENTS.md`: Next.js가 `next dev`/`next build` 때마다 자동으로 다시 써넣는 파일(버전별 API 차이를 알려주는 용도). 손으로 고치지 않는다.
 
 ### 화면 (`webapp/`)
-- `webapp/src/lib/queries.ts`: 화면이 쓰는 집계 쿼리(`getAvailableMonths`, `getLineMonthStats`, `getKpiSummary`). SQLite에서 직접 SQL로 집계하며(`sql` 템플릿), `analysis.py`가 이미 계산해둔 `six_loss_total`/`operating_rate` 등을 다시 계산하지 않고 그대로 합산만 한다.
-- `webapp/src/app/page.tsx`(①현황판)는 `searchParams`(Next 16이라 `Promise`, `await` 필요)로 `month`/`target`을 받는 **Server Component**다. 필터(`components/FilterBar.tsx`)는 클라이언트 JS 없이 순수 `<form method="GET">`로 구현했다 — 값이 바뀌면 그냥 새 URL로 이동해서 서버가 다시 쿼리한다.
-- 차트가 필요한 곳(`Gauge`, `Sparkline`)은 `Plot.tsx`를 통해 각자 `"use client"` + `next/dynamic({ssr:false})`로 불러온다. `LineStatusCard`가 이것들과 `TopLossBars`(순수 CSS)를 묶어 카드 하나를 만든다.
+- `webapp/src/lib/queries.ts`: 화면이 쓰는 집계 쿼리(`getAvailableMonths`, `getLineMonthStats`, `getKpiSummary`, `getHeatmapData`, `getLossBreakdown`, `getPareto`, `getTrendSeries`, `getDayDetail` 등). SQLite에서 직접 SQL로 집계하며(`sql` 템플릿), `analysis.py`가 이미 계산해둔 `six_loss_total`/`operating_rate` 등을 다시 계산하지 않고 그대로 합산만 한다. `LineFilter`(`"all"` 또는 라인명 하나)가 ③④⑤ 공통 라인 필터(FR-13)의 기준 타입이다.
+- `webapp/src/app/page.tsx`(①현황판)는 `searchParams`(Next 16이라 `Promise`, `await` 필요)로 `month`/`target`을 받는 **Server Component**다. ③④⑤도 같은 패턴이며 `line`(과 ④는 `topn`, ⑤는 전체기간용 `month=all`)이 더 붙는다. 필터(`components/FilterBar.tsx`)는 클라이언트 JS 없이 순수 `<form method="GET">`로 구현했다 — 값이 바뀌면 그냥 새 URL로 이동해서 서버가 다시 쿼리한다. `showLineFilter`/`showAllPeriodOption`/`topN` 같은 선택적 prop으로 화면마다 다른 조합을 만든다.
+- 차트가 필요한 곳(`Gauge`, `Sparkline`, `HeatmapChart`, `CategoryHeatmap`, `LossCompositionBar`, `WaterfallChart`, `ParetoChart`, `TrendChart`)은 전부 `Plot.tsx`를 통해 각자 `"use client"` + `next/dynamic({ssr:false})`로 불러온다. `LineStatusCard`가 `Gauge`+`Sparkline`+`TopLossBars`(순수 CSS)를 묶어 카드 하나를 만드는 식으로 구성한다.
+- `/api/day-detail`(route handler): ③히트맵 셀 클릭 드릴다운(FR-10)이 쓰는 API. `HeatmapChart`가 클릭 이벤트에서 `fetch`로 호출한다 — Server Component가 아니라 브라우저에서 직접 부르는 것이라 별도 라우트가 필요했다.
+- `/api/export/line-day`, `/api/export/allocation`(route handler): CSV 내보내기(FR-14, `ExportLinks`). PNG는 별도 구현 없이 Plotly 차트 툴바의 기본 카메라 아이콘(`config.displayModeBar: true`)으로 대체했다.
+- **Plotly 이름 있는 colorscale('RdYlGn', 'Blues')이 기대와 반대 방향으로 렌더된다** — 실제로 겪은 문제라 `HeatmapChart`/`CategoryHeatmap`은 `colorscale`을 이름 대신 `[[0,색],[1,색]]` 배열로 직접 지정한다. 새 히트맵을 추가할 때도 이름 있는 스케일을 쓰기 전에 스크린샷으로 방향을 먼저 확인할 것.
+- `queries.ts`에서 클라이언트 컴포넌트가 import할 상수(`LOSS_LABELS` 등)는 `lib/lossCategories.ts`처럼 **`db`를 import하지 않는 별도 파일**에 둔다. `queries.ts` 자체를 클라이언트 컴포넌트가 import하면(타입이 아니라 값을) `better-sqlite3`가 브라우저 번들에 딸려가 "Can't resolve 'fs'"로 빌드가 깨진다(실제로 겪음). `import type`은 컴파일 시 지워지므로 타입만 가져오는 건 괜찮다.
 
 ### 디자인 시스템 연동 (`webapp/`)
 - Tailwind v4는 CSS 기반 설정이라 `tailwind.config.ts`가 없다 — 토큰은 `webapp/src/app/globals.css`의 `@theme inline` 블록에 있다.

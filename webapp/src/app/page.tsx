@@ -45,7 +45,7 @@ export default async function Home({ searchParams }: HomePageProps) {
           <h1 className="text-h1">① 현황판</h1>
           <p className="text-body text-text-secondary">{selectedMonth} · AGM 조립 1~4라인</p>
         </div>
-        <FilterBar months={months} selectedMonth={selectedMonth} targetPercent={targetPercent} />
+        <FilterBar action="/" months={months} selectedMonth={selectedMonth} targetPercent={targetPercent} />
       </div>
 
       <div className="flex flex-wrap gap-4">
