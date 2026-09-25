@@ -6,8 +6,8 @@ RAW_DIR = ROOT / "data" / "raw"
 OUT_DIR = ROOT / "output"
 
 # SMES에서 내려받은 원본 파일 (월이 바뀌면 파일명만 교체)
-SUMMARY_FILE = RAW_DIR / "SMES_작업공수관리일자_7월.xls"   # 작업공수관리일자
-DETAIL_FILE = RAW_DIR / "SMES_부동공수상세_7월.xls"       # 부동공수 상세
+SUMMARY_FILE = RAW_DIR / "SMES 작업공수관리(일자) _ 7월.xls"   # 작업공수관리일자
+DETAIL_FILE = RAW_DIR / "SMES 부동공수 상세_ 7월.xls"       # 부동공수 상세
 
 EXCEL_OUT = OUT_DIR / "SMES_7월_공수부동_분석.xlsx"
 PPT_OUT = OUT_DIR / "AGM라인_가동율_산출방식_검증.pptx"

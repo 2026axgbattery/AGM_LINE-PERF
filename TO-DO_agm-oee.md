@@ -2,7 +2,7 @@
 
 - 관련 문서: [PLAN_agm-oee.md](PLAN_agm-oee.md), [PRD_agm-oee.md](PRD_agm-oee.md), [TECH_agm-oee.md](TECH_agm-oee.md)
 - 이 파일은 대화가 진행되면서 항목이 완료될 때마다 자동으로 `[x]`로 갱신됩니다. 사람이 직접 체크할 필요는 없습니다.
-- 마지막 갱신: 2026-09-25 (M2 완료, M1은 실데이터 검증만 남음)
+- 마지막 갱신: 2026-09-25 (M1·M2 완료, M3 시작 예정)
 
 ## M0. 프로젝트 뼈대
 - [x] git 저장소 초기화 + 최초 커밋 (기존 Python 파이프라인 + 문서 스냅샷)
@@ -18,9 +18,10 @@
 - [x] `lib/ingest.ts` 작성 (CSV → SQLite upsert, 재계산 없음) — import/트랜잭션 배선 확인
 - [x] Python venv pandas 버전을 3.x→2.x로 고정 (회귀 검증 기준과 불일치 위험 방지)
 - [x] `uploads` 상태(processing/done/error) 기록 로직 — `lib/uploadPipeline.ts`, status='error' 기록까지 실제 확인
-- [ ] 7월 데이터로 수동 1회 실행 검증 — **실제 SMES 원본 파일 필요 (data/raw/에 아직 없음, 사용자 확보 대기)**
-- [x] 분류 경고("부동>계획" 등) 처리 방식 반영 (PRD FR-5) — `line_day.warning` 컬럼 + `IngestResult.warnings`로 노출
-- [ ] SQLite 적재값이 `tests/test_analysis.py` 검증값과 일치 확인 (1라인 90.16% 등)
+- [x] 7월 데이터로 수동 1회 실행 검증 — 사용자가 실제 SMES 원본 2종을 `data/raw/`에 등록, `npm run ingest:once`로 전체 파이프라인 통과 확인
+- [x] 분류 경고("부동>계획" 등) 처리 방식 반영 (PRD FR-5) — `line_day.warning` 컬럼 + `IngestResult.warnings`로 노출 (7월 데이터엔 경고 없음)
+- [x] SQLite 적재값이 `tests/test_analysis.py` 검증값과 일치 확인 — 1라인 0.9016, 2라인 0.9143, 3라인 0.8999, 4라인 0.8854, 6대부동합계 16319.0, 수동작업 제외분 8650.0 전부 정확히 일치
+- [x] (버그 수정) `export_data.py`가 utf-8-sig(BOM)로 CSV를 쓰는데 `csv-parse`가 BOM을 안 벗겨 첫 컬럼("라인")이 전부 undefined였음 — `parse(..., { bom: true })` + `str()` 가드 추가로 수정
 
 ## M2. 디자인 시스템 연동
 - [x] `sebang.css`를 `webapp/`에 연결 — `public/design/`에 복사(`npm run sync:design`) 후 `layout.tsx`에서 `<link>`로 로드 (Turbopack이 webapp/ 밖 경로 CSS @import를 막아 이 방식 채택)

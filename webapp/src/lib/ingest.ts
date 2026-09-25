@@ -17,6 +17,13 @@ function num(v: string): number {
   return n;
 }
 
+function str(v: string | undefined, column: string): string {
+  if (v === undefined) {
+    throw new Error(`CSV에 "${column}" 컬럼이 없습니다 (헤더 이름이 바뀌었거나 BOM이 안 벗겨졌을 수 있음)`);
+  }
+  return v;
+}
+
 interface LineDayRow {
   line: string;
   date: string;
@@ -45,9 +52,13 @@ interface AllocationRow {
 }
 
 function parseLineDayCsv(csvText: string): LineDayRow[] {
-  const records: Record<string, string>[] = parse(csvText, { columns: true, skip_empty_lines: true });
+  const records: Record<string, string>[] = parse(csvText, {
+    columns: true,
+    skip_empty_lines: true,
+    bom: true, // export_data.py가 엑셀 호환을 위해 utf-8-sig(BOM 포함)로 저장한다 (CLAUDE.md 코딩 규칙)
+  });
   return records.map((r) => ({
-    line: r["라인"],
+    line: str(r["라인"], "라인"),
     date: toIsoDate(r["일자"]),
     productionLoss: num(r["생산부동"]),
     equipmentLoss: num(r["설비부동"]),
@@ -64,15 +75,19 @@ function parseLineDayCsv(csvText: string): LineDayRow[] {
 }
 
 function parseAllocationCsv(csvText: string): AllocationRow[] {
-  const records: Record<string, string>[] = parse(csvText, { columns: true, skip_empty_lines: true });
+  const records: Record<string, string>[] = parse(csvText, {
+    columns: true,
+    skip_empty_lines: true,
+    bom: true,
+  });
   return records
     .filter((r) => r["반영구분"] === "가동율반영" || r["반영구분"] === "수동작업(제외)")
     .map((r) => ({
       date: toIsoDate(r["일자"]),
-      line: r["라인"],
-      lossCategory: r["부동유형"],
-      lossDetail: r["부동내역"],
-      detailText: r["세부내역"],
+      line: str(r["라인"], "라인"),
+      lossCategory: str(r["부동유형"], "부동유형"),
+      lossDetail: str(r["부동내역"], "부동내역"),
+      detailText: str(r["세부내역"], "세부내역"),
       allocationRatio: num(r["배분율"]),
       minutesAllocated: num(r["배분시간분"]),
       isManualExcluded: r["반영구분"] === "수동작업(제외)",
