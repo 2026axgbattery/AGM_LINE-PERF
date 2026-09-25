@@ -84,6 +84,11 @@ Next.js(App Router, TypeScript) + SQLite(Drizzle ORM) 웹 서비스 계층. 계�
 - `webapp/scripts/ingest-once.ts` (`npm run ingest:once`): 위 파이프라인 전체를 한 번에 실행하는 수동 검증용 CLI.
 - `webapp/CLAUDE.md`/`webapp/AGENTS.md`: Next.js가 `next dev`/`next build` 때마다 자동으로 다시 써넣는 파일(버전별 API 차이를 알려주는 용도). 손으로 고치지 않는다.
 
+### 화면 (`webapp/`)
+- `webapp/src/lib/queries.ts`: 화면이 쓰는 집계 쿼리(`getAvailableMonths`, `getLineMonthStats`, `getKpiSummary`). SQLite에서 직접 SQL로 집계하며(`sql` 템플릿), `analysis.py`가 이미 계산해둔 `six_loss_total`/`operating_rate` 등을 다시 계산하지 않고 그대로 합산만 한다.
+- `webapp/src/app/page.tsx`(①현황판)는 `searchParams`(Next 16이라 `Promise`, `await` 필요)로 `month`/`target`을 받는 **Server Component**다. 필터(`components/FilterBar.tsx`)는 클라이언트 JS 없이 순수 `<form method="GET">`로 구현했다 — 값이 바뀌면 그냥 새 URL로 이동해서 서버가 다시 쿼리한다.
+- 차트가 필요한 곳(`Gauge`, `Sparkline`)은 `Plot.tsx`를 통해 각자 `"use client"` + `next/dynamic({ssr:false})`로 불러온다. `LineStatusCard`가 이것들과 `TopLossBars`(순수 CSS)를 묶어 카드 하나를 만든다.
+
 ### 디자인 시스템 연동 (`webapp/`)
 - Tailwind v4는 CSS 기반 설정이라 `tailwind.config.ts`가 없다 — 토큰은 `webapp/src/app/globals.css`의 `@theme inline` 블록에 있다.
 - `sebang.css` 원본(`sebang_design_system_2/sebang-design-system/sebang.css`)은 Turbopack이 `webapp/` 바깥 경로를 CSS `@import` 하지 못하게 막아서, `npm run sync:design`(`scripts/sync-design.mjs`, `postinstall`로 자동 실행)이 `webapp/public/design/sebang.css`로 복사해두면 `layout.tsx`가 `<link>`로 읽는다. **원본을 고치면 `npm run sync:design`을 다시 실행해야 반영된다** — `public/design/`은 git에 커밋하지 않는다.

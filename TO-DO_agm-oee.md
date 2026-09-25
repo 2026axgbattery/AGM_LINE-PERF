@@ -2,7 +2,7 @@
 
 - 관련 문서: [PLAN_agm-oee.md](PLAN_agm-oee.md), [PRD_agm-oee.md](PRD_agm-oee.md), [TECH_agm-oee.md](TECH_agm-oee.md)
 - 이 파일은 대화가 진행되면서 항목이 완료될 때마다 자동으로 `[x]`로 갱신됩니다. 사람이 직접 체크할 필요는 없습니다.
-- 마지막 갱신: 2026-09-25 (M1·M2 완료, M3 시작 예정)
+- 마지막 갱신: 2026-09-25 (M1~M3 완료, M4 시작 예정)
 
 ## M0. 프로젝트 뼈대
 - [x] git 저장소 초기화 + 최초 커밋 (기존 Python 파이프라인 + 문서 스냅샷)
@@ -33,11 +33,11 @@
 - [x] `react-plotly.js` 설치 및 최소 예제 차트 렌더 확인 — `GaugeCard`로 인디케이터 게이지 렌더(더미 데이터), 프로덕션 빌드까지 통과
 
 ## M3. 화면 ① 현황판 (Andon)
-- [ ] KPI 카드 4종 집계 쿼리 작성
-- [ ] 라인별 카드 4개 (게이지, 상태 배지, 스파크라인, 부동 TOP3)
-- [ ] 목표율(TARGET_RATE) 조정 UI (FR-8)
-- [ ] 월 선택 시 전체 갱신 확인
-- [ ] 기존 목업(`output/mockups/p1.html`) 수치와 일치 검증
+- [x] KPI 카드 4종 집계 쿼리 작성 (`lib/queries.ts`: `getKpiSummary`, `getLineMonthStats`, `getAvailableMonths`)
+- [x] 라인별 카드 4개 (게이지 `Gauge`, 상태 배지, 스파크라인 `Sparkline`, 부동 TOP3 `TopLossBars`) — `LineStatusCard`로 조합
+- [x] 목표율 조정 UI (FR-8) — `FilterBar`(순수 GET 폼, JS 없이 새로고침으로 반영), `?target=` 쿼리파라미터로 재계산 확인(90→85%)
+- [x] 월 선택 시 전체 갱신 확인 — `?month=` 쿼리파라미터, `getAvailableMonths()`로 select 채움(지금은 7월 1개)
+- [x] 기존 목업 수치와 일치 검증 — 종합 90.0%, 6대부동 16,319분, 최저 4라인 88.5%, 목표미달 44/124, 4라인 설비부동 1,708분까지 실제 렌더 결과로 확인
 
 ## M4. 화면 ③④⑤
 - [ ] ③ 히트맵: 라인×일 격자 + 부동유형×라인 보조 히트맵

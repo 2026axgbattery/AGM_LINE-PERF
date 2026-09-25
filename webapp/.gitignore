@@ -42,3 +42,8 @@ next-env.d.ts
 
 # 디자인 시스템 원본(../sebang_design_system_2/)에서 복사된 파일 — npm install(postinstall)이 재생성함
 /public/design/
+
+# SQLite 데이터 파일 (WAL 모드 부산물 -shm/-wal 포함)
+/data/*.sqlite
+/data/*.sqlite-shm
+/data/*.sqlite-wal

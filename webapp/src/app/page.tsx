@@ -1,26 +1,67 @@
-import { GaugeCard } from "@/components/GaugeCard";
+import Link from "next/link";
+import { FilterBar } from "@/components/FilterBar";
+import { KpiCard } from "@/components/KpiCard";
+import { LineStatusCard } from "@/components/LineStatusCard";
+import { getAvailableMonths, getKpiSummary, getLineMonthStats } from "@/lib/queries";
+import { DEFAULT_TARGET_RATE } from "@/lib/lines";
+import { STATUS_COLOR } from "@/lib/status";
 
-// 더미 데이터 — M3에서 SQLite(line_day) 집계로 교체한다.
-const DUMMY_LINES = [
-  { label: "AGM 조립 1라인", rate: 0.902 },
-  { label: "AGM 조립 2라인", rate: 0.914 },
-  { label: "AGM 조립 3라인", rate: 0.9 },
-  { label: "AGM 조립 4라인", rate: 0.885 },
-];
-const TARGET = 0.9;
+interface HomePageProps {
+  searchParams: Promise<{ month?: string; target?: string }>;
+}
 
-export default function Home() {
-  return (
-    <div className="flex flex-1 flex-col gap-6 p-8">
-      <div>
+export default async function Home({ searchParams }: HomePageProps) {
+  const sp = await searchParams;
+  const months = getAvailableMonths();
+
+  if (months.length === 0) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
         <h1 className="text-h1">① 현황판</h1>
         <p className="text-body text-text-secondary">
-          디자인 시스템·차트 연동 확인용 예시 데이터입니다 (M3에서 실데이터로 교체 예정).
+          아직 적재된 데이터가 없습니다.{" "}
+          <Link href="/upload" className="text-accent-secondary underline">
+            SMES 원본을 업로드
+          </Link>
+          하면 여기에 표시됩니다.
         </p>
       </div>
+    );
+  }
+
+  const selectedMonth = sp.month && months.includes(sp.month) ? sp.month : months[0];
+  const targetPercent = Math.min(100, Math.max(1, Number(sp.target) || DEFAULT_TARGET_RATE * 100));
+  const target = targetPercent / 100;
+
+  const stats = getLineMonthStats(selectedMonth);
+  const kpi = getKpiSummary(selectedMonth, target);
+  const belowTargetLabel =
+    kpi.totalLineDays > 0 ? `${kpi.belowTargetDays}건 / ${kpi.totalLineDays}` : "-";
+
+  return (
+    <div className="flex flex-1 flex-col gap-6 p-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-h1">① 현황판</h1>
+          <p className="text-body text-text-secondary">{selectedMonth} · AGM 조립 1~4라인</p>
+        </div>
+        <FilterBar months={months} selectedMonth={selectedMonth} targetPercent={targetPercent} />
+      </div>
+
       <div className="flex flex-wrap gap-4">
-        {DUMMY_LINES.map((line) => (
-          <GaugeCard key={line.label} label={line.label} rate={line.rate} target={TARGET} />
+        <KpiCard label="4개 라인 종합 가동율" value={`${(kpi.overallRate * 100).toFixed(1)}%`} />
+        <KpiCard label="6대부동 합계" value={`${kpi.sixLossTotal.toLocaleString()}분`} />
+        <KpiCard
+          label="최저 라인"
+          value={kpi.worstLine ? `${kpi.worstLine.line.replace("AGM조립", "")} ${(kpi.worstLine.rate * 100).toFixed(1)}%` : "-"}
+          hintColor={STATUS_COLOR.warn}
+        />
+        <KpiCard label="목표 미달 일수" value={belowTargetLabel} hint="라인×일 기준" />
+      </div>
+
+      <div className="flex flex-wrap gap-4">
+        {stats.map((stat) => (
+          <LineStatusCard key={stat.line} stat={stat} target={target} />
         ))}
       </div>
     </div>
