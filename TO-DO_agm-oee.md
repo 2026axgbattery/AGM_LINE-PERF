@@ -2,7 +2,7 @@
 
 - 관련 문서: [PLAN_agm-oee.md](PLAN_agm-oee.md), [PRD_agm-oee.md](PRD_agm-oee.md), [TECH_agm-oee.md](TECH_agm-oee.md)
 - 이 파일은 대화가 진행되면서 항목이 완료될 때마다 자동으로 `[x]`로 갱신됩니다. 사람이 직접 체크할 필요는 없습니다.
-- 마지막 갱신: 2026-09-25 (M1~M5 완료, M6 시작 예정)
+- 마지막 갱신: 2026-09-26 (M1~M6 완료, M7 시작 예정)
 
 ## M0. 프로젝트 뼈대
 - [x] git 저장소 초기화 + 최초 커밋 (기존 Python 파이프라인 + 문서 스냅샷)
@@ -56,9 +56,10 @@
 - [x] (부수 발견) `/upload` 페이지가 DB를 읽는데도 정적 페이지로 빌드돼 업로드 후 이력이 갱신 안 될 위험 → `export const dynamic = "force-dynamic"`으로 고정
 
 ## M6. 테스트 · 품질
-- [ ] Vitest: `lib/ingest.ts` 및 집계 쿼리 단위 테스트
-- [ ] Playwright: 화면 4종 스모크 테스트
-- [ ] 기존 `pytest` 통과 재확인 (계산 로직 무변경 검증)
+- [x] Vitest: `lib/ingest.ts`(BOM 파싱·경고 감지·덮어쓰기·클리핑) 및 `lib/queries.ts`(KPI·라인별 집계·로스·파레토·드릴다운) 단위 테스트 12개 — 별도 SQLite 테스트 DB(`.vitest-scratch/`, 전역 setup/teardown에서 마이그레이션+정리)로 실제 dev DB와 격리
+- [x] Playwright: 화면 4종(①③④⑤) 스모크 테스트 — 페이지 로드 + 필터 변경(목표율/라인/TOP N/전체기간) 후 재렌더 확인. 전용 포트(3100)로 Playwright가 서버를 직접 띄우고 종료
+- [x] 기존 `pytest` 통과 재확인 (계산 로직 무변경 검증) — M6 작업 전후로 5개 전부 통과
+- [x] `npm test`(vitest)가 `tests/e2e/*.spec.ts`(Playwright 전용)를 잘못 주워가는 문제 발견·수정 — `vitest.config.mts`의 `include`를 `src/**/*.test.ts`로 한정
 
 ## M7. 배포
 - [ ] 사내망 서버 Node.js 22 LTS 설치

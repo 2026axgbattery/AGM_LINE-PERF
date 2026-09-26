@@ -42,6 +42,8 @@ npm run db:migrate      # drizzle-kit migrate — data/agm_oee.sqlite 생성
 npm run dev             # 개발 서버 (Turbopack, http://localhost:3000)
 npm run ingest:once     # Python 파이프라인 실행 + CSV → SQLite 적재 수동 1회 실행 (검증용)
 npm run db:studio       # Drizzle Studio로 SQLite 내용 확인
+npm test                # Vitest 단위 테스트 (lib/ingest.ts, lib/queries.ts) — 별도 테스트 DB 사용
+npm run test:e2e        # Playwright 스모크 테스트 (①③④⑤ 화면, 전용 포트 3100에 서버 자동 기동)
 ```
 
 ## 핵심 규칙 (사용자 확정 — 임의 변경 금지)
@@ -103,6 +105,12 @@ Next.js(App Router, TypeScript) + SQLite(Drizzle ORM) 웹 서비스 계층. 계�
 - `components/ThemeToggle.tsx`는 React state로 테마를 추적하지 않는다 — `<html data-theme>`을 직접 읽고/쓰고 CSS(`dark:hidden` 등)로 보이는 라벨만 바꾼다. React state로 만들면 (레이아웃의 인라인 스크립트가 hydration 전에 미리 정해둔 값과 어긋나) hydration mismatch가 난다.
 - 사이드바 네비게이션은 `lib/nav.ts`의 그룹 배열로만 정의된다. 화면을 추가하려면(생산성지표, OEE 등) 여기에 그룹/항목만 추가하면 된다 — 사용자가 UI 단계에서 화면·기능이 계속 늘어날 것이라고 확인했다.
 - 차트는 `react-plotly.js`+`plotly.js-dist-min`(전체 trace 포함, 용량만 최소화) 하나로 통일한다(`components/Plot.tsx`). Plotly는 `document`에 접근해 SSR이 안 되므로, 쓰는 곳은 반드시 `"use client"` 컴포넌트 안에서 `next/dynamic(..., { ssr: false })`로 불러온다(`components/GaugeCard.tsx` 참고).
+
+### 테스트 (`webapp/`)
+- Vitest(`src/lib/__tests__/`)는 `webapp/data/agm_oee.sqlite`(개발 DB)를 절대 건드리지 않는다 — `vitest.config.mts`가 `AGM_OEE_PROJECT_ROOT`/`AGM_OEE_DB_PATH`를 `.vitest-scratch/`(테스트 실행마다 새로 만들고 끝나면 지움)로 override하고, `vitest.global-setup.mts`가 그 안에 `drizzle-kit migrate`로 스키마를 만든다. 새 테스트를 추가할 때 이 env를 직접 바꾸지 말 것 — `db`/`paths`가 이미 그 값을 읽게 되어 있다.
+- 여러 워커가 같은 SQLite(WAL) 파일을 동시에 열면 "database is locked"가 난다 — `fileParallelism: false`로 파일 단위 직렬 실행 중(실제로 겪은 문제).
+- `vitest.config.mts`의 `include: ["src/**/*.test.ts"]`를 지우지 말 것 — 없으면 Vitest가 `tests/e2e/*.spec.ts`(Playwright 전용)까지 주워가서 깨진다(실제로 겪음).
+- Playwright(`tests/e2e/`, `playwright.config.ts`)는 사내망 배포 전 로컬 스모크 테스트용이며, **개발 DB에 이미 적재된 실데이터**를 그대로 읽는다(별도 픽스처 없음) — 포트 3100에서 Playwright가 `npm run dev`를 직접 띄우고 끝나면 종료한다. 화면에 표시되는 정확한 수치가 아니라 "로드되는지·필터를 바꿔도 안 깨지는지"만 확인하는 스모크 테스트다.
 
 ## 다음 할 일
 1. 대시보드 웹앱(`webapp/`, Next.js+SQLite — 아래 참고)을 만든다. 첫 화면은 ①, 상세 화면은 ③④⑤로 구성한다. 요구사항은 [PRD_agm-oee.md](PRD_agm-oee.md), 기술 선택 근거는 [TECH_agm-oee.md](TECH_agm-oee.md) 참고(②설비 상태 타임라인은 부동 발생 시각 데이터가 없어 이번 범위 제외).
