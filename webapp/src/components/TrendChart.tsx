@@ -25,11 +25,11 @@ export function TrendChart({ line, dates, rates, target }: TrendChartProps) {
   const status = rateStatus(monthRate, target);
 
   return (
-    <div className="min-w-[320px] flex-1 rounded-lg border border-border bg-bg-surface p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-h3">AGM 조립 {LINE_SHORT_LABEL[line] ?? line}</span>
+    <div className="min-w-0 rounded-lg border border-border bg-bg-surface p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-h3 whitespace-nowrap">AGM 조립 {LINE_SHORT_LABEL[line] ?? line}</span>
         <span
-          className="text-caption rounded-full px-3 py-1 font-semibold"
+          className="text-caption whitespace-nowrap rounded-full px-3 py-1 font-semibold"
           style={{ color: status.color, backgroundColor: `${status.color}22` }}
         >
           {status.label} · 평균 {(monthRate * 100).toFixed(1)}% · 미달 {belowIdx.length}일
@@ -64,7 +64,7 @@ export function TrendChart({ line, dates, rates, target }: TrendChartProps) {
         ]}
         layout={{
           height: 260,
-          margin: { t: 20, b: 30, l: 40, r: 10 },
+          margin: { t: 36, b: 30, l: 40, r: 10 },
           paper_bgcolor: "transparent",
           plot_bgcolor: "transparent",
           font: { family: "var(--font-family-base)", color: "var(--color-text-primary)" },

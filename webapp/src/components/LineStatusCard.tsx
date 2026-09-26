@@ -13,11 +13,11 @@ export function LineStatusCard({ stat, target }: LineStatusCardProps) {
   const status = rateStatus(stat.rate, target);
 
   return (
-    <div className="flex-1 min-w-[280px] rounded-lg border border-border bg-bg-surface p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-h3">AGM 조립 {stat.line.replace("AGM조립", "")}</span>
+    <div className="min-w-0 rounded-lg border border-border bg-bg-surface p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-h3 whitespace-nowrap">AGM 조립 {stat.line.replace("AGM조립", "")}</span>
         <span
-          className="text-caption rounded-full px-3 py-1 font-semibold"
+          className="text-caption whitespace-nowrap rounded-full px-3 py-1 font-semibold"
           style={{ color: status.color, backgroundColor: `${status.color}22` }}
         >
           {status.label}

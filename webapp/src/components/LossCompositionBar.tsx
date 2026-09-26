@@ -29,13 +29,14 @@ export function LossCompositionBar({ operatingMinutes, categories }: LossComposi
       }))}
       layout={{
         barmode: "stack",
-        height: 130,
-        margin: { t: 10, b: 30, l: 10, r: 10 },
+        height: 210,
+        margin: { t: 10, b: 110, l: 10, r: 10 },
         paper_bgcolor: "transparent",
         plot_bgcolor: "transparent",
         font: { family: "var(--font-family-base)", color: "var(--color-text-primary)" },
         yaxis: { visible: false },
-        legend: { orientation: "h", y: -0.3 },
+        // 항목이 7개라 좁은 화면에서 두세 줄로 줄바꿈된다 — x축 눈금과 겹치지 않도록 충분히 아래로 뺀다.
+        legend: { orientation: "h", y: -0.9, x: 0.5, xanchor: "center" },
       }}
       config={{ displayModeBar: false, responsive: true }}
       style={{ width: "100%" }}

@@ -54,12 +54,12 @@ export default async function LossPage({ searchParams }: LossPageProps) {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-6">
-        <div className="min-w-[320px] flex-1 rounded-lg border border-border bg-bg-surface p-4">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="min-w-0 rounded-lg border border-border bg-bg-surface p-4">
           <div className="text-h3 mb-2">6대부동 누적 (워터폴, 분)</div>
           <WaterfallChart categories={breakdown.categories} />
         </div>
-        <div className="min-w-[320px] flex-1 rounded-lg border border-border bg-bg-surface p-4">
+        <div className="min-w-0 rounded-lg border border-border bg-bg-surface p-4">
           <div className="text-h3 mb-2">부동 원인 파레토 TOP {topN}</div>
           {pareto.length > 0 ? (
             <ParetoChart items={pareto} />

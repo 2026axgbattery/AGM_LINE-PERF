@@ -48,7 +48,7 @@ export default async function Home({ searchParams }: HomePageProps) {
         <FilterBar action="/" months={months} selectedMonth={selectedMonth} targetPercent={targetPercent} />
       </div>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="4개 라인 종합 가동율" value={`${(kpi.overallRate * 100).toFixed(1)}%`} />
         <KpiCard label="6대부동 합계" value={`${kpi.sixLossTotal.toLocaleString()}분`} />
         <KpiCard
@@ -59,7 +59,7 @@ export default async function Home({ searchParams }: HomePageProps) {
         <KpiCard label="목표 미달 일수" value={belowTargetLabel} hint="라인×일 기준" />
       </div>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {stats.map((stat) => (
           <LineStatusCard key={stat.line} stat={stat} target={target} />
         ))}
