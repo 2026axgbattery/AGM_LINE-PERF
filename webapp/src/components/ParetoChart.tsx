@@ -44,7 +44,7 @@ export function ParetoChart({ items }: ParetoChartProps) {
         yaxis2: { title: { text: "누적 %" }, overlaying: "y", side: "right", range: [0, 100] },
         legend: { orientation: "h", y: -0.5 },
       }}
-      config={{ displayModeBar: true, responsive: true, displaylogo: false }}
+      config={{ displayModeBar: true, displaylogo: false }}
       style={{ width: "100%" }}
       useResizeHandler
     />

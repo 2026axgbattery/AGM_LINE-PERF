@@ -47,7 +47,7 @@ export function Sparkline({ dailyRates, target }: SparklineProps) {
           },
         ],
       }}
-      config={{ displayModeBar: false, responsive: true }}
+      config={{ displayModeBar: false }}
     />
   );
 }

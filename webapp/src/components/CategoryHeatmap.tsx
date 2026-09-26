@@ -40,7 +40,7 @@ export function CategoryHeatmap({ categoryTotals }: CategoryHeatmapProps) {
         plot_bgcolor: "transparent",
         font: { family: "var(--font-family-base)", color: "var(--color-text-primary)" },
       }}
-      config={{ displayModeBar: false, responsive: true }}
+      config={{ displayModeBar: false }}
       style={{ width: "100%" }}
       useResizeHandler
     />

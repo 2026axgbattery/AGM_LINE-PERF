@@ -37,7 +37,7 @@ export function WaterfallChart({ categories }: WaterfallChartProps) {
         font: { family: "var(--font-family-base)", color: "var(--color-text-primary)" },
         showlegend: false,
       }}
-      config={{ displayModeBar: true, responsive: true, displaylogo: false }}
+      config={{ displayModeBar: true, displaylogo: false }}
       style={{ width: "100%" }}
       useResizeHandler
     />

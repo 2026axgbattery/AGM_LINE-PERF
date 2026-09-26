@@ -40,7 +40,7 @@ export function Gauge({ rate, target, color }: GaugeProps) {
         paper_bgcolor: "transparent",
         font: { family: "var(--font-family-base)" },
       }}
-      config={{ displayModeBar: false, responsive: true }}
+      config={{ displayModeBar: false }}
     />
   );
 }

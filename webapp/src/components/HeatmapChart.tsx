@@ -83,7 +83,7 @@ export function HeatmapChart({ lines, dates, rates, overallRates }: HeatmapChart
           xaxis: { tickfont: { size: 10 } },
           yaxis: { tickfont: { size: 12 } },
         }}
-        config={{ displayModeBar: true, responsive: true, displaylogo: false }}
+        config={{ displayModeBar: true, displaylogo: false }}
         onClick={handleClick}
         style={{ width: "100%" }}
         useResizeHandler

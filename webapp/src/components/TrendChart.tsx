@@ -83,7 +83,7 @@ export function TrendChart({ line, dates, rates, target }: TrendChartProps) {
           ],
           legend: { orientation: "h", y: -0.2 },
         }}
-        config={{ displayModeBar: true, responsive: true, displaylogo: false }}
+        config={{ displayModeBar: true, displaylogo: false }}
         style={{ width: "100%" }}
         useResizeHandler
       />

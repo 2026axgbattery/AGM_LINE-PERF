@@ -38,7 +38,7 @@ export function LossCompositionBar({ operatingMinutes, categories }: LossComposi
         // 항목이 7개라 좁은 화면에서 두세 줄로 줄바꿈된다 — x축 눈금과 겹치지 않도록 충분히 아래로 뺀다.
         legend: { orientation: "h", y: -0.9, x: 0.5, xanchor: "center" },
       }}
-      config={{ displayModeBar: false, responsive: true }}
+      config={{ displayModeBar: false }}
       style={{ width: "100%" }}
       useResizeHandler
     />
