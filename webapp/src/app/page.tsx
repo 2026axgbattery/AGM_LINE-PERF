@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { HomeFilterBar, type HomeMode } from "@/components/HomeFilterBar";
+import { cookies } from "next/headers";
+import { PeriodFilterBar, type PeriodMode } from "@/components/PeriodFilterBar";
+import { HomeFilterPersist } from "@/components/HomeFilterPersist";
 import { KpiCard } from "@/components/KpiCard";
 import { LineStatusCard } from "@/components/LineStatusCard";
 import { DEFAULT_TARGET_RATE } from "@/lib/lines";
 import { previousPeriod, previousRange } from "@/lib/period";
 import { getAvailableDates, getAvailableMonths, getKpiSummary, getLineMonthStats, type Period } from "@/lib/queries";
 import { rateStatus, STATUS_COLOR } from "@/lib/status";
+import { decodeHomeFilterCookie, HOME_FILTER_COOKIE } from "@/lib/homeFilterCookie";
 
 interface HomePageProps {
   searchParams: Promise<{ mode?: string; period?: string; from?: string; to?: string; target?: string }>;
@@ -16,6 +19,17 @@ const MONTH_RE = /^\d{4}-\d{2}$/;
 
 export default async function Home({ searchParams }: HomePageProps) {
   const sp = await searchParams;
+  const cookieStore = await cookies();
+  const saved = decodeHomeFilterCookie(cookieStore.get(HOME_FILTER_COOKIE)?.value);
+  // 쿼리스트링에 값이 있으면(사용자가 지금 막 필터를 바꿨거나 링크를 눌렀으면) 그걸 그대로 쓰고,
+  // 없으면(사이드바에서 "①현황판"으로 그냥 돌아온 경우) 마지막으로 저장된 쿠키 값을 대신 쓴다.
+  const eff = {
+    mode: sp.mode ?? saved.mode,
+    period: sp.period ?? saved.period,
+    from: sp.from ?? saved.from,
+    to: sp.to ?? saved.to,
+    target: sp.target ?? saved.target,
+  };
   const dates = getAvailableDates();
   const months = getAvailableMonths();
 
@@ -36,19 +50,19 @@ export default async function Home({ searchParams }: HomePageProps) {
 
   const minDate = dates[dates.length - 1];
   const maxDate = dates[0];
-  const mode: HomeMode = sp.mode === "month" ? "month" : sp.mode === "range" ? "range" : "day";
+  const mode: PeriodMode = eff.mode === "month" ? "month" : eff.mode === "range" ? "range" : "day";
 
-  const targetPercent = Math.min(100, Math.max(1, Number(sp.target) || DEFAULT_TARGET_RATE * 100));
+  const targetPercent = Math.min(100, Math.max(1, Number(eff.target) || DEFAULT_TARGET_RATE * 100));
   const target = targetPercent / 100;
 
   let period: Period;
   let prevPeriod: Period;
   let periodText: string;
   let deltaLabel: string;
-  const selectedDate = sp.period && DATE_RE.test(sp.period) ? sp.period : maxDate;
-  const selectedMonth = sp.period && MONTH_RE.test(sp.period) ? sp.period : months[0];
-  let rangeFrom = sp.from && DATE_RE.test(sp.from) ? sp.from : minDate;
-  let rangeTo = sp.to && DATE_RE.test(sp.to) ? sp.to : maxDate;
+  const selectedDate = eff.period && DATE_RE.test(eff.period) ? eff.period : maxDate;
+  const selectedMonth = eff.period && MONTH_RE.test(eff.period) ? eff.period : months[0];
+  let rangeFrom = eff.from && DATE_RE.test(eff.from) ? eff.from : minDate;
+  let rangeTo = eff.to && DATE_RE.test(eff.to) ? eff.to : maxDate;
   if (rangeFrom > rangeTo) [rangeFrom, rangeTo] = [rangeTo, rangeFrom];
 
   if (mode === "day") {
@@ -86,13 +100,21 @@ export default async function Home({ searchParams }: HomePageProps) {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-8">
+      <HomeFilterPersist
+        mode={mode}
+        period={mode === "day" ? selectedDate : mode === "month" ? selectedMonth : undefined}
+        from={rangeFrom}
+        to={rangeTo}
+        target={targetPercent}
+      />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-h1">① 현황판</h1>
             <p className="text-body text-text-secondary">{periodText} · AGM 조립 1~4라인</p>
           </div>
-          <HomeFilterBar
+          <PeriodFilterBar
+            basePath="/"
             mode={mode}
             selectedDate={selectedDate}
             selectedMonth={selectedMonth}
@@ -100,7 +122,20 @@ export default async function Home({ searchParams }: HomePageProps) {
             rangeTo={rangeTo}
             minDate={minDate}
             maxDate={maxDate}
-            targetPercent={targetPercent}
+            extraFields={
+              <label className="flex flex-col gap-1">
+                <span className="text-caption text-text-secondary">목표 가동율(%)</span>
+                <input
+                  type="number"
+                  name="target"
+                  min={1}
+                  max={100}
+                  step={1}
+                  defaultValue={targetPercent}
+                  className="text-body-sm w-24 rounded-md border border-border bg-bg-base px-2 py-1.5"
+                />
+              </label>
+            }
           />
         </div>
 
@@ -122,11 +157,12 @@ export default async function Home({ searchParams }: HomePageProps) {
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <KpiCard
+              compact
               label="4개 라인 종합 가동율"
               value={overallIsNoData ? "비가동" : `${(kpi.overallRate * 100).toFixed(1)}%`}
               valueColor={overallIsNoData ? STATUS_COLOR.noData : undefined}
             />
-            <KpiCard label="6대부동 합계" value={`${kpi.sixLossTotal.toLocaleString()}분`} />
+            <KpiCard compact label="6대부동 합계" value={`${kpi.sixLossTotal.toLocaleString()}분`} />
             <KpiCard
               label={deltaLabel}
               value={
@@ -153,7 +189,7 @@ export default async function Home({ searchParams }: HomePageProps) {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {stats.map((stat) => (
               <LineStatusCard
                 key={stat.line}

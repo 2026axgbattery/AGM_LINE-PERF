@@ -12,7 +12,8 @@ export interface CompareFilterBarProps {
 
 const MODE_LABEL: Record<CompareMode, string> = { day: "전일 비교", month: "전월 비교", year: "전년 비교" };
 
-// ③비교분석 전용 필터 — HomeFilterBar.tsx와 같은 이유로 분리(다른 화면 FilterBar에 영향 안 주려고).
+// 가동율 비교분석 전용 필터 — PeriodFilterBar.tsx와 같은 이유로 분리(전일/전월/전년 비교라는
+// 다른 개념이라 일별/기간별/월별 필터를 공유하지 않는다).
 export function CompareFilterBar({ mode, selectedDate, selectedMonth, minDate, maxDate }: CompareFilterBarProps) {
   const minMonth = minDate.slice(0, 7);
   const maxMonth = maxDate.slice(0, 7);

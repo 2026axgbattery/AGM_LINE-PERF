@@ -32,7 +32,7 @@ describe("previousRange", () => {
 });
 
 describe("previousYear", () => {
-  it("일/월 단위 모두 연도만 1 뺀다 (③비교분석 전년 비교용)", () => {
+  it("일/월 단위 모두 연도만 1 뺀다 (가동율 비교분석 전년 비교용)", () => {
     expect(previousYear("2026-09-26")).toBe("2025-09-26");
     expect(previousYear("2026-09")).toBe("2025-09");
   });

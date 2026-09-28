@@ -14,7 +14,7 @@ export interface TrendChartProps {
   target: number;
 }
 
-// ⑤ 추이: 라인별 일 가동율 + 7일 이동평균 + 목표선 + 목표 미달일 표시 (FR-12).
+// 가동율 추이: 라인별 일 가동율 + 7일 이동평균 + 목표선 + 목표 미달일 표시 (FR-12).
 export function TrendChart({ line, dates, rates, target }: TrendChartProps) {
   const ma = movingAverage(rates, 7);
   const belowIdx = rates

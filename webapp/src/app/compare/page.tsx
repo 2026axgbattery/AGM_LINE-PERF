@@ -19,7 +19,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
   if (dates.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-        <h1 className="text-h1">③ 비교분석</h1>
+        <h1 className="text-h1">가동율 비교분석</h1>
         <p className="text-body text-text-secondary">
           아직 적재된 데이터가 없습니다.{" "}
           <Link href="/upload" className="text-accent-secondary underline">
@@ -69,7 +69,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
     <div className="flex flex-1 flex-col gap-6 p-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-h1">③ 비교분석</h1>
+          <h1 className="text-h1">가동율 비교분석</h1>
           <p className="text-body text-text-secondary">
             {currentLabel} vs {previousLabel} · AGM 조립 1~4라인
           </p>

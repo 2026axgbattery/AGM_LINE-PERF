@@ -10,3 +10,15 @@ export const LOSS_LABELS = [
   { key: "lineImbalanceLoss", label: "라인언밸런스" },
   { key: "materialChangeLoss", label: "부자재교체" },
 ] as const;
+
+// 부동유형별 고정 색상 — 라벨 기준이라 정렬 순서(가장 큰 순)가 바뀌어도 같은 유형은 항상 같은
+// 색이다. LossCompositionBar(계획가동시간 구성)·WaterfallChart(6대부동 누적)가 같이 써서 같은
+// 화면 안에서 색이 서로 어긋나지 않게 한다.
+export const LOSS_CATEGORY_COLOR: Record<string, string> = {
+  생산부동: "#2a78d6",
+  설비부동: "#eb6834",
+  자재부동: "#1baf7a",
+  관리부동: "#eda100",
+  라인언밸런스: "#e87ba4",
+  부자재교체: "#008300",
+};

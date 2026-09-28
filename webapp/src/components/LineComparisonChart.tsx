@@ -43,13 +43,21 @@ function seriesOf(points: ComparisonPoint[], color: string) {
   return { y, text, colors };
 }
 
-// ③비교분석 — 라인별 막대 차트로 현재 vs 비교기간(전일/전월/전년) 가동율을 나란히 보여준다.
+// 가동율 비교분석 — 라인별 막대 차트로 현재 vs 비교기간(전일/전월/전년) 가동율을 나란히 보여준다.
 // rate===1(비가동)인 막대는 높이 0 + "비가동" 텍스트로 표시해, 100%짜리 막대가 마치 완벽한
 // 가동인 것처럼 보이지 않게 한다(①현황판의 Gauge와 같은 규칙, lib/status.ts 참고).
+// 비교기간 막대는 예전에 var(--color-text-secondary)를 썼는데, Plotly가 bar marker.color를
+// SVG fill 속성으로 그려서 CSS 변수가 아예 해석되지 않아(다른 차트들도 전부 리터럴 hex를 쓰는
+// 이유) 두 막대 모두 검정으로 렌더링되고 있었다 — 실제 색상 구분이 전혀 안 되는 버그였다.
+// 세방 CI 색상표(sebang.css)의 accent-primary(오렌지)/accent-secondary(그린) 리터럴 값으로
+// 고정해 뚜렷이 구분되게 한다.
+const CURRENT_COLOR = "#EB3300"; // --color-accent-primary(세방 오렌지)
+const PREVIOUS_COLOR = "#006A76"; // --color-accent-secondary(세방 그린)
+
 export function LineComparisonChart({ current, previous, currentLabel, previousLabel }: LineComparisonChartProps) {
   const x = LINES.map((l) => LINE_SHORT_LABEL[l] ?? l);
-  const cur = seriesOf(current, "var(--color-accent-primary)");
-  const prev = seriesOf(previous, "var(--color-text-secondary)");
+  const cur = seriesOf(current, CURRENT_COLOR);
+  const prev = seriesOf(previous, PREVIOUS_COLOR);
 
   return (
     <Plot

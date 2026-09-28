@@ -17,13 +17,17 @@ function monthClause(month: string) {
 // "YYYY-MM-DD"(하루), 객체면 from~to(포함) 임의 날짜 범위.
 export type Period = string | { from: string; to: string };
 
-function periodClause(period: Period) {
+// 길이로만 구분하는 건 다른 화면(getAvailableMonths 등)의 기존 월 전용 동작에 영향
+// 없이 getLineMonthStats/getKpiSummary/getTopLossDetails만 확장하기 위함이다.
+function periodClauseCol(col: SQLiteColumn, period: Period) {
   if (typeof period !== "string") {
-    return sql`${lineDay.date} between ${period.from} and ${period.to}`;
+    return sql`${col} between ${period.from} and ${period.to}`;
   }
-  // 길이로만 구분하는 건 다른 화면(getAvailableMonths 등)의 기존 월 전용 동작에 영향
-  // 없이 getLineMonthStats/getKpiSummary만 확장하기 위함이다.
-  return period.length === 10 ? sql`${lineDay.date} = ${period}` : monthClause(period);
+  return period.length === 10 ? sql`${col} = ${period}` : sql`substr(${col}, 1, 7) = ${period}`;
+}
+
+function periodClause(period: Period) {
+  return periodClauseCol(lineDay.date, period);
 }
 
 function selectedLines(line: LineFilter): readonly string[] {
@@ -52,6 +56,17 @@ export function getAvailableDates(): string[] {
   return rows.map((r) => r.date);
 }
 
+export interface TopLossDetail {
+  detail: string;
+  minutes: number;
+}
+
+export interface TopLossItem {
+  label: string;
+  minutes: number;
+  details: TopLossDetail[]; // 이 부동유형 안에서 가장 큰 부동내역 상위 3건 (호버 표시용). 없으면 빈 배열.
+}
+
 export interface LineMonthStat {
   line: string;
   rate: number; // 기간 시간가동율
@@ -60,7 +75,23 @@ export interface LineMonthStat {
   operatingMinutes: number;
   lastDate: string;
   lastRate: number;
-  topLosses: { label: string; minutes: number }[];
+  topLosses: TopLossItem[];
+}
+
+// 부동유형(예: "설비부동") 안에서 부동내역(엑셀 "부동내역" 컬럼) 기준 가장 큰 상위 N건.
+// getPareto와 동일하게 수동작업(isManualExcluded)은 제외한다 — lineDay의 부동유형 합계 자체가
+// 이미 수동작업을 뺀 값이라 여기서도 맞춰야 두 숫자가 어긋나지 않는다.
+function getTopLossDetails(period: Period, line: string, lossCategory: string, limit = 3): TopLossDetail[] {
+  return db
+    .select({ detail: allocation.lossDetail, minutes: sql<number>`sum(${allocation.minutesAllocated})` })
+    .from(allocation)
+    .where(
+      sql`${allocation.line} = ${line} and ${allocation.lossCategory} = ${lossCategory} and ${allocation.isManualExcluded} = 0 and ${periodClauseCol(allocation.date, period)}`,
+    )
+    .groupBy(allocation.lossDetail)
+    .orderBy(sql`sum(${allocation.minutesAllocated}) desc`)
+    .limit(limit)
+    .all();
 }
 
 export interface KpiSummary {
@@ -96,7 +127,7 @@ function getLineMonthTotals(period: Period) {
 
 type LineMonthTotal = ReturnType<typeof getLineMonthTotals>[number];
 
-function topLossesOf(t: LineMonthTotal | undefined): { label: string; minutes: number }[] {
+function topLossesOf(period: Period, line: string, t: LineMonthTotal | undefined): TopLossItem[] {
   if (!t) return [];
   return [
     { label: "생산부동", minutes: t.productionLoss },
@@ -107,7 +138,8 @@ function topLossesOf(t: LineMonthTotal | undefined): { label: string; minutes: n
     { label: "부자재교체", minutes: t.materialChangeLoss },
   ]
     .sort((a, b) => b.minutes - a.minutes)
-    .slice(0, 3);
+    .slice(0, 3)
+    .map((c) => ({ ...c, details: c.minutes > 0 ? getTopLossDetails(period, line, c.label, 3) : [] }));
 }
 
 export function getLineMonthStats(period: Period): LineMonthStat[] {
@@ -131,7 +163,7 @@ export function getLineMonthStats(period: Period): LineMonthStat[] {
       operatingMinutes: t?.operatingMinutes ?? 0,
       lastDate: last?.date ?? "",
       lastRate: last?.rate ?? 0,
-      topLosses: topLossesOf(t),
+      topLosses: topLossesOf(period, line, t),
     };
   });
 }
@@ -171,9 +203,9 @@ export interface LossBreakdown {
   categories: { label: string; minutes: number }[]; // 큰 순서
 }
 
-export function getLossBreakdown(month: string, line: LineFilter): LossBreakdown {
+export function getLossBreakdown(period: Period, line: LineFilter): LossBreakdown {
   const lines = new Set(selectedLines(line));
-  const rows = getLineMonthTotals(month).filter((t) => lines.has(t.line));
+  const rows = getLineMonthTotals(period).filter((t) => lines.has(t.line));
 
   const planMinutes = rows.reduce((s, r) => s + r.planMinutes, 0);
   const operatingMinutes = rows.reduce((s, r) => s + r.operatingMinutes, 0);
@@ -188,15 +220,16 @@ export function getLossBreakdown(month: string, line: LineFilter): LossBreakdown
 export interface ParetoItem {
   detail: string;
   minutes: number;
+  ratio: number; // 전체 부동(topN이 아니라 그 조건의 전체 부동내역 합계) 대비 이 항목의 비중 (0~1)
   cumulativeRatio: number;
 }
 
-export function getPareto(month: string, line: LineFilter, topN: number): ParetoItem[] {
+export function getPareto(period: Period, line: LineFilter, topN: number): ParetoItem[] {
   const rows = db
     .select({ detail: allocation.lossDetail, minutes: sql<number>`sum(${allocation.minutesAllocated})` })
     .from(allocation)
     .where(
-      sql`substr(${allocation.date}, 1, 7) = ${month} and ${allocation.isManualExcluded} = 0 and ${lineClauseFor(allocation.line, line)}`,
+      sql`${periodClauseCol(allocation.date, period)} and ${allocation.isManualExcluded} = 0 and ${lineClauseFor(allocation.line, line)}`,
     )
     .groupBy(allocation.lossDetail)
     .orderBy(sql`sum(${allocation.minutesAllocated}) desc`)
@@ -206,7 +239,7 @@ export function getPareto(month: string, line: LineFilter, topN: number): Pareto
   let cum = 0;
   return rows.slice(0, topN).map((r) => {
     cum += r.minutes;
-    return { detail: r.detail, minutes: r.minutes, cumulativeRatio: cum / total };
+    return { detail: r.detail, minutes: r.minutes, ratio: r.minutes / total, cumulativeRatio: cum / total };
   });
 }
 
@@ -221,19 +254,16 @@ export interface TrendSeries {
   rates: number[];
 }
 
-// monthOrAll: 특정 "YYYY-MM" 또는 "all"(적재된 전체 기간, FR-12)
-export function getTrendSeries(monthOrAll: string, line: LineFilter): TrendSeries[] {
+// ①현황판·④6대부동 분석과 같은 일별/기간별/월별 Period를 그대로 받는다
+// ("전체 기간"이 필요하면 기간별 모드에서 최소~최대 날짜를 그대로 선택하면 된다).
+export function getTrendSeries(period: Period, line: LineFilter): TrendSeries[] {
   const lines = selectedLines(line);
-  const where =
-    monthOrAll === "all"
-      ? sql`1=1`
-      : sql`substr(${lineDay.date}, 1, 7) = ${monthOrAll}`;
 
   return lines.map((l) => {
     const rows = db
       .select({ date: lineDay.date, rate: lineDay.operatingRate })
       .from(lineDay)
-      .where(sql`${lineDay.line} = ${l} and ${where}`)
+      .where(sql`${lineDay.line} = ${l} and ${periodClause(period)}`)
       .orderBy(lineDay.date)
       .all();
     return { line: l, dates: rows.map((r) => r.date), rates: rows.map((r) => r.rate) };

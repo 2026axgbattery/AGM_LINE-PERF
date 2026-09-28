@@ -15,9 +15,9 @@ export const NAV: NavGroup[] = [
   {
     label: "분석",
     items: [
-      { label: "비교분석", href: "/compare" },
-      { label: "로스", href: "/loss" },
-      { label: "추이", href: "/trend" },
+      { label: "6대부동 분석", href: "/loss" },
+      { label: "가동율 추이", href: "/trend" },
+      { label: "가동율 비교분석", href: "/compare" },
     ],
   },
   {

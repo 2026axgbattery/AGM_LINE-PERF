@@ -6,14 +6,14 @@ import type { LineMonthStat } from "@/lib/queries";
 export interface LineStatusCardProps {
   stat: LineMonthStat;
   target: number;
-  periodLabel?: string; // "월"(기본) 또는 "일" — ①현황판 일별/월별 토글용 (HomeFilterBar 참고)
+  periodLabel?: string; // "월"(기본) 또는 "일" — ①현황판 일별/월별 토글용 (PeriodFilterBar 참고)
 }
 
 export function LineStatusCard({ stat, target, periodLabel = "월" }: LineStatusCardProps) {
   const status = rateStatus(stat.rate, target);
 
   return (
-    <div className="min-w-0 rounded-lg border border-border bg-bg-surface p-4">
+    <div className="min-w-0 rounded-lg border border-border bg-bg-surface p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-h3 whitespace-nowrap">AGM 조립 {stat.line.replace("AGM조립", "")}</span>
         <span
@@ -26,7 +26,7 @@ export function LineStatusCard({ stat, target, periodLabel = "월" }: LineStatus
 
       <Gauge rate={stat.rate} target={target} color={status.color} isNoData={status.level === "noData"} />
 
-      <div className="text-body-sm -mt-2 flex flex-wrap justify-center gap-x-6 gap-y-1 text-center text-text-secondary">
+      <div className="text-caption -mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-center text-text-secondary">
         <div>
           {periodLabel} 부동 <b className="text-text-primary">{stat.sixLossTotal.toLocaleString()}분</b>
         </div>
@@ -43,7 +43,7 @@ export function LineStatusCard({ stat, target, periodLabel = "월" }: LineStatus
         )}
       </div>
 
-      <div className="text-caption mt-3 mb-1 text-text-secondary">부동 TOP 3</div>
+      <div className="text-caption mt-2 mb-1 text-text-secondary">부동 TOP 3</div>
       <TopLossBars items={stat.topLosses} />
     </div>
   );

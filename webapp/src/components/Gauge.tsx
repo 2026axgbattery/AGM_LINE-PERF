@@ -26,9 +26,9 @@ export function Gauge({ rate, target, color, isNoData }: GaugeProps) {
           type: "indicator",
           mode: isNoData ? "gauge" : "gauge+number",
           value: rate * 100,
-          number: { suffix: "%", font: { size: 44 } },
+          number: { suffix: "%", valueformat: ".1f", font: { size: 34 } },
           gauge: {
-            axis: { range: [0, 100], tickfont: { size: 13 } },
+            axis: { range: [0, 100], tickfont: { size: 11 } },
             bar: { color },
             threshold: {
               line: { color: "#52514e", width: 3 },
@@ -39,8 +39,8 @@ export function Gauge({ rate, target, color, isNoData }: GaugeProps) {
         },
       ]}
       layout={{
-        height: 260,
-        margin: { t: 30, b: 10, l: 30, r: 30 },
+        height: 190,
+        margin: { t: 18, b: 6, l: 16, r: 16 },
         paper_bgcolor: "transparent",
         font: { family: "var(--font-family-base)" },
         annotations: isNoData
@@ -49,10 +49,10 @@ export function Gauge({ rate, target, color, isNoData }: GaugeProps) {
                 text: "비가동",
                 showarrow: false,
                 x: 0.5,
-                y: 0.35,
+                y: 0.3,
                 xref: "paper",
                 yref: "paper",
-                font: { size: 32, color },
+                font: { size: 24, color },
               },
             ]
           : [],

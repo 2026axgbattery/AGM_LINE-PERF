@@ -44,13 +44,17 @@ describe("getLineMonthStats", () => {
     expect(line1.rate).toBeCloseTo(1285 / 2640, 6);
     expect(line1.sixLossTotal).toBe(2035);
     expect(line1.topLosses).toEqual([
-      { label: "설비부동", minutes: 2020 },
-      { label: "생산부동", minutes: 10 },
-      { label: "부자재교체", minutes: 5 },
+      { label: "설비부동", minutes: 2020, details: [{ detail: "설비고장", minutes: 2020 }] },
+      { label: "생산부동", minutes: 10, details: [{ detail: "설비점검", minutes: 10 }] },
+      { label: "부자재교체", minutes: 5, details: [{ detail: "격리판교체", minutes: 5 }] },
     ]);
 
     expect(line2.rate).toBeCloseTo(2590 / 2640, 6);
-    expect(line2.topLosses[0]).toEqual({ label: "관리부동", minutes: 50 });
+    expect(line2.topLosses[0]).toEqual({
+      label: "관리부동",
+      minutes: 50,
+      details: [{ detail: "형명교체", minutes: 50 }],
+    });
   });
 });
 
