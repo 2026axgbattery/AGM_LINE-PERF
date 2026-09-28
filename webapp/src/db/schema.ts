@@ -37,7 +37,7 @@ export const lineDay = sqliteTable(
   ],
 );
 
-// 부동 1건 = 1행 (라인 배분 후, output/agm_allocation.csv 를 그대로 적재) — 히트맵 드릴다운·파레토용
+// 부동 1건 = 1행 (라인 배분 후, output/agm_allocation.csv 를 그대로 적재) — 파레토(④로스)용
 export const allocation = sqliteTable(
   "allocation",
   {

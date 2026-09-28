@@ -1,5 +1,10 @@
-import { PlaceholderPage } from "@/components/PlaceholderPage";
+import { SettingsClient } from "@/components/SettingsClient";
+import { getUploadHistory } from "@/lib/queries";
+
+// 관리자 모드 업로드 이력은 항상 최신 상태여야 한다 (upload/page.tsx와 동일한 이유).
+export const dynamic = "force-dynamic";
 
 export default function SettingsPage() {
-  return <PlaceholderPage title="설정" milestone="추후 단계 (목표 가동율 등)" />;
+  const uploads = getUploadHistory(50);
+  return <SettingsClient uploads={uploads} />;
 }

@@ -12,3 +12,4 @@ export const PYTHON_BIN =
 export const OUTPUT_DIR = path.join(PROJECT_ROOT, "output");
 export const RAW_DIR = path.join(PROJECT_ROOT, "data", "raw");
 export const EXPORT_SCRIPT = path.join(PROJECT_ROOT, "scripts", "export_data.py");
+export const BACKUP_DIR = path.join(PROJECT_ROOT, "backups");

@@ -5,14 +5,7 @@ import { db } from "@/db";
 import { allocation, lineDay } from "@/db/schema";
 import { ingestFromOutput } from "../ingest";
 import { OUTPUT_DIR } from "../paths";
-import {
-  getAvailableMonths,
-  getDayDetail,
-  getKpiSummary,
-  getLineMonthStats,
-  getLossBreakdown,
-  getPareto,
-} from "../queries";
+import { getAvailableMonths, getKpiSummary, getLineMonthStats, getLossBreakdown, getPareto } from "../queries";
 import { ALLOCATION_CSV, LINE_DAY_CSV } from "./fixtures";
 
 beforeEach(() => {
@@ -85,13 +78,5 @@ describe("getPareto", () => {
     expect(items[0].minutes).toBe(2020);
     expect(items.find((i) => i.detail === "수동적재")).toBeUndefined();
     expect(items.at(-1)!.cumulativeRatio).toBeCloseTo(1, 6);
-  });
-});
-
-describe("getDayDetail", () => {
-  it("특정 라인·일자의 부동 상세를 분 내림차순으로 반환한다 (수동작업 포함, FR-10)", () => {
-    const items = getDayDetail("2026-01-01", "AGM조립1라인");
-    expect(items.map((i) => i.lossDetail)).toEqual(["설비고장", "수동적재", "설비점검", "격리판교체"]);
-    expect(items.find((i) => i.lossDetail === "수동적재")?.isManualExcluded).toBe(true);
   });
 });

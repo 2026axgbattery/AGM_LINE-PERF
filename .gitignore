@@ -3,6 +3,7 @@ __pycache__/
 node_modules/
 output/
 data/raw/
+backups/
 *.pyc
 ~$*
 .DS_Store
@@ -10,6 +11,9 @@ __MACOSX/
 
 # 기존 총시간생산성 엑셀 등 참고용 원본 (git 추적 안 함, 로컬 참고 자료)
 EBGC 라인가동율 대시보드/
+
+# SMES 자동화 조사용 스크린샷/컨트롤 덤프 (사내 화면 캡처라 git에 남기지 않음)
+scripts/smes_automation/out/
 
 # webapp (Next.js)
 webapp/.next/

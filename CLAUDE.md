@@ -34,17 +34,42 @@ npm run ppt
 
 **`requirements.txt`의 `pandas<3` 고정을 풀지 말 것.** `tests/test_analysis.py`의 회귀값은 pandas 2.x 기준으로 검증됐다. pandas 3.0으로 올리면 `pip install`은 조용히 성공하지만 수치가 달라질 수 있으니, 버전을 바꾸려면 반드시 `pytest`로 7월 값이 그대로인지 먼저 확인한다.
 
-### 웹앱 (`webapp/`, 개발 중)
+### 웹앱 (`webapp/`, M1~M6 완료, M7 배포 진행 중)
 ```powershell
 cd webapp
 npm install
 npm run db:migrate      # drizzle-kit migrate — data/agm_oee.sqlite 생성
 npm run dev             # 개발 서버 (Turbopack, http://localhost:3000)
-npm run ingest:once     # Python 파이프라인 실행 + CSV → SQLite 적재 수동 1회 실행 (검증용)
+npm run ingest:once     # Python 파이프라인 실행 + CSV → SQLite 적재 수동 1회 실행 (검증용, FILES 맵에 등록된 월만)
+npm run ingest:run -- --summary <경로> --detail <경로> --year <YYYY> --month <M>   # 임의 파일 경로로 즉시 적재 (SMES 자동화 결과 반영용)
+npm run backup:db [-- --retain 14]   # SQLite 스냅샷을 backups/에 저장, 초과분은 오래된 것부터 자동 삭제 (run_daily_update.py가 자동 호출)
 npm run db:studio       # Drizzle Studio로 SQLite 내용 확인
-npm test                # Vitest 단위 테스트 (lib/ingest.ts, lib/queries.ts) — 별도 테스트 DB 사용
+npm test                # Vitest 단위 테스트 (lib/ingest.ts, lib/queries.ts, lib/admin.ts) — 별도 테스트 DB 사용
 npm run test:e2e        # Playwright 스모크 테스트 (①③④⑤ 화면, 전용 포트 3100에 서버 자동 기동)
+
+# 배포(M7) — 사내망에서 다른 PC도 접속 가능하게 프로덕션으로 띄울 때
+npm run build
+npx pm2 startOrReload ecosystem.config.cjs   # 포트 3000, HOSTNAME 0.0.0.0
+npx pm2 restart agm-oee                       # 코드 변경 후 재반영 (먼저 npm run build 필요)
+npx pm2 stop agm-oee
 ```
+
+### SMES 자동화 (`scripts/smes_automation/`, 사용자가 직접 실행할 때만 동작 — 스케줄러 없음)
+```powershell
+# 전제: SMES에 이미 로그인된 상태로 창이 화면에 보여야 한다(최소화 아님, 1920x1080 최대화 기준 좌표)
+.venv\Scripts\python.exe scripts\smes_automation\run_daily_update.py   # 전일자 다운로드 2종 + 웹앱 SQLite 반영까지 한 번에
+# 또는 바탕화면 바로가기: "SMES 데이터 업데이트"(scripts/smes_automation/run_daily_update.bat), "AGM 가동율 대시보드"(scripts/start_dashboard.bat)
+```
+pywinauto(UIA 백엔드)로 SMES 화면을 실제 마우스 클릭으로 조작한다(현황분석>공수관리 드롭다운 마우스 홀드+이동, 좌표 기반). `_common.py`에 공통 로직(메뉴 탐색, 날짜/공정 필드 입력+검증, CSV 저장)이 있고 `download_detail.py`(부동공수분석-상세, DETAIL_FILE 역할)/`download_summary.py`(작업공수관리(일자별), SUMMARY_FILE 역할)가 화면별 좌표만 다르게 가진다. **"작업공수관리(기간별)" 화면은 쓰지 않는다** — 공정×구분 집계표라 `load_summary()`가 기대하는 `일자별` 컬럼이 없어서 초기에 시도했다가 폐기했다. `.bat` 파일은 반드시 ASCII로만 작성할 것 — 한글 주석이 든 UTF-8(BOM 없음) 배치파일을 한글 Windows `cmd.exe`가 CP949로 잘못 읽어 파일 자체가 깨지는 걸 실제로 겪었다.
+
+`run_daily_update.py`는 적재 성공 뒤 `npm run backup:db`(`webapp/scripts/backup-db.ts` → `lib/admin.ts`의 `createScheduledBackup`)도 같이 호출해 `backups/`에 SQLite 스냅샷을 남긴다. 별도 스케줄러 없이 "SMES 자동화를 직접 실행할 때만 백업도 같이" 만들어지는 방식(사용자 확정 사항). 기본 14개 초과분은 오래된 것부터 자동 삭제되는데, **이건 백업 파일 정리일 뿐 대시보드가 보여주는 실제 데이터(line_day/allocation)와는 무관하다** — 그쪽은 관리자 모드에서 직접 지우지 않는 한 몇 년이 지나도 그대로 조회된다(달력 입력을 쓰는 이유이기도 함).
+
+**과거 달 소급 백필**: `backfill_month.py <year> <month>`(임의 월 1일~말일 통째로 다운로드, 웹앱 적재는 별도로 `npm run ingest:run` 호출 필요) / `backfill_range.py <시작연> <시작월> <끝연> <끝월>`(여러 달 연속 다운로드+적재까지 한 번에, 한 달 실패해도 다음 달로 계속 진행하고 끝에 성공/실패 목록 출력). 실제로 2025-01~2026-06(18개월)을 이 방식으로 한 번에 채워 넣어 검증했다 — **하루 단위(`run_daily_update.py`)든 통째 월 단위든 겹치지 않는 날짜 범위라면 몇 번을 나눠 넣어도 중복·충돌 없이 합쳐진다**(`ingest.ts`가 파일에 실제로 들어있는 날짜만 지우고 다시 넣는 구조라서). 이 규모로 돌릴 때 실제로 겪은 것들:
+- **같은 파일명을 재다운로드(재시도)하면 Windows가 "이미 있음, 덮어쓰시겠습니까?" 확인창을 띄우는데 `save_via_csv()`가 이걸 처리하지 못해 멈춘다** — 재시도 전에 `data/raw/`에서 그 달 파일을 지우거나, 멈춰있는 대화상자를 수동으로 닫아줘야 한다. (아직 자동 처리 코드는 없음 — 고칠 거면 `_common.py`의 `save_via_csv()`에 추가)
+- **CSV 저장 후 SMES가 자동으로 그 파일을 Excel로 열어서 보여주는데, 다음에 같은 파일명으로 다시 저장하려 하면 "다른 프로세스에서 사용 중" 에러가 난다** — 반복 다운로드(백필처럼 여러 달을 연달아 받을 때) 중간중간 열려 있는 Excel 창들을 정리해줘야 한다.
+- 달 하나 전체가 pywinauto 타이밍 이슈로 실패해도(날짜 필드에 이전 값이 남아있는 등) 그 달만 건너뛰고 나머지는 정상 진행되므로, 실패 목록만 따로 재시도하면 된다.
+
+**적재 후 누락 검증 방법**: "빠진 날짜가 있는지" 확인할 땐 DB만 보지 말고 **원본 SMES 파일(`data/raw/`)의 `일자별` 컬럼과 대조**해야 한다 — SMES 자체에 이미 없는 날(공휴일 등 실제로 작업이 없었던 날)과 파이프라인이 유실한 날을 구분해야 하기 때문이다. 실제로 2025-01~2026-06을 이 방식으로 검증했을 때, 원본에 빠진 날(설날 연휴 1/29~30, 현충일 6/6, 추석 연휴 10/6)과 DB에 빠진 날이 정확히 일치해 파이프라인 유실이 없음을 확인했다 — 달력 일수와 DB 일수만 비교하면 이런 정상적인 휴무일까지 "누락"으로 오인하게 되니 주의.
 
 ## 핵심 규칙 (사용자 확정 — 임의 변경 금지)
 - GC라인·반자동라인은 모든 분석에서 제외한다.
@@ -57,10 +82,13 @@ npm run test:e2e        # Playwright 스모크 테스트 (①③④⑤ 화면, �
   - 단일·복수 라인 표기는 각 라인에 100% 반영한다.
   - 라인 미표기 AGM 공통 부동은 4개 라인에 25%씩 배분한다.
 - 시간가동율 = (계획 − 6대부동분) ÷ 계획. 라인 가동율은 시간(분) 기준이고, 공정 지표는 공수 기준이다.
+- **가동율 100%(rate===1, 즉 6대부동 0분)는 실제로는 있을 수 없는 값** — 정상 달성이 아니라 그 라인/기간의 부동 데이터 자체가 없다는 신호로 본다. 웹앱에서는 회색 "비가동"으로 표시하고(`lib/status.ts`의 `rateStatus()`), "목표 달성 라인" 집계에서도 제외한다. `rate`가 정수 분(分) 합산에서 나온 값이라 부동소수점 오차 없이 `=== 1` 비교로 판정한다.
 
 ## 구조와 데이터 흐름
 - `src/agm/config.py`: 모든 기준값과 경로(파일 경로, 계획시간, 6대부동 매핑, 라인/제외/수동작업 정규식). 기준을 바꿀 때는 여기부터 고친다.
-- `src/agm/analysis.py`: 산출 엔진. 새 기능은 여기에 함수로 추가한다. 파이프라인은 `load_summary/load_detail`(원본 읽기) → `classify`(부동 1건마다 대상라인·관리구분 판정) → `allocate`(라인별 배분 테이블 생성) → `line_day`(라인×일자 가동율) → `monthly`(월 합계) 순이며, `run_all()`이 전체를 한 번에 실행하고 결과를 dict로 반환한다(`summary`, `detail`, `alloc`, `line_day`, `monthly`, `pareto`, `kpi`). `run_all(summary_path, detail_path, year, month)`와 `line_day(alloc, plan, year, month)`는 인자를 안 주면 `config.py` 기본값과 완전히 같게 동작한다 — 웹앱이 다른 달을 처리할 때만 override한다(M5).
+- `src/agm/analysis.py`: 산출 엔진. 새 기능은 여기에 함수로 추가한다. 파이프라인은 `load_summary/load_detail`(원본 읽기) → `classify`(부동 1건마다 대상라인·관리구분 판정) → `allocate`(라인별 배분 테이블 생성) → `line_day`(라인×일자 가동율) → `monthly`(월 합계) 순이며, `run_all()`이 전체를 한 번에 실행하고 결과를 dict로 반환한다(`summary`, `detail`, `alloc`, `line_day`, `monthly`, `pareto`, `kpi`). `run_all(summary_path, detail_path, year, month)`와 `line_day(alloc, plan, year, month, days)`는 인자를 안 주면 `config.py` 기본값과 완전히 같게 동작한다 — 웹앱이 다른 달을 처리할 때만 override한다(M5).
+  - `classify()`/`allocate()`는 부동 0건(빈 DataFrame) 입력을 반드시 처리해야 한다 — pandas가 빈 DataFrame에 `.apply(axis=1)`을 쓰면 반환 shape을 잘못 추론해 "여러 컬럼을 단일 컬럼에 대입" 에러가 난다(SMES 자동화로 하루치만 받으면 그날 부동이 0건일 수 있어 실제로 겪음). 두 함수 다 앞부분에 빈 입력 가드가 있다.
+  - `line_day()`의 `days` 인자(기본 None → year/month의 달력 전체 채움)는 **하루치만 들어온 데이터를 반영할 때 반드시 넘겨야 한다** — 안 넘기면 조회하지 않은 나머지 날짜까지 "부동 0건=100% 가동"으로 잘못 채워 기존 데이터를 덮어쓴다(실제로 겪음: 하루치 업로드로 그 달 나머지 29일이 100%로 오염됨). `run_all()`은 이미 `summary["일자"]`(그 실행에서 실제로 조회한 날짜들)를 `days`로 넘기도록 고쳐져 있다 — 이 배선을 건드리지 말 것.
 - `run_pipeline.py`: `scripts/export_data.py` → `scripts/excel/build_base.py` → `build_summary.py` → `build_agm_lines.py` → `scripts/dashboard/gen_mockups.py` 순서로 실행하는 진입점. 각 스크립트는 독립 실행 가능하며 모두 `output/`에 결과를 쓴다.
 - `scripts/export_data.py`: `analysis.run_all()` 결과를 `output/agm_line_day.csv`, `agm_monthly.csv`, `agm_allocation.csv`, `dashboard_data.json`으로 내보낸다. **웹앱/대시보드는 이 산출물을 입력으로 쓴다.**
 - `scripts/excel/`: `build_base.py`(원본 대사·일자별 가동율 시트, 엑셀 수식 기반) → `build_summary.py` → `build_agm_lines.py` 3단계로 엑셀 보고서를 만든다. **분류 규칙(라인 추출 정규식, 수동작업 패턴)이 `analysis.py`와 별도로 `build_base.py`에 중복 구현되어 있다** — 분류 규칙을 바꾸면 `config.py`와 `build_base.py`의 `MANUAL` 정규식을 함께 고쳐야 한다(장기적으로는 엔진으로 통합 권장).
@@ -82,20 +110,26 @@ Next.js(App Router, TypeScript) + SQLite(Drizzle ORM) 웹 서비스 계층. 계�
 - `webapp/src/lib/paths.ts`: 프로젝트 루트·`.venv` 파이썬·`output/` 경로를 계산. `webapp/`이 항상 루트 바로 아래에 있다고 전제(`AGM_OEE_PROJECT_ROOT` 환경변수로 재정의 가능).
 - `webapp/src/lib/runPython.ts`: `child_process.execFile`로 `.venv`의 python을 실행해 `scripts/export_data.py`를 돌린다. 실패 시 stderr를 그대로 반환(재계산 로직 없음, 실행만 함).
 - `webapp/src/lib/ingest.ts`: `output/agm_line_day.csv`·`agm_allocation.csv`를 읽어 SQLite에 upsert. 같은 날짜의 기존 행은 지우고 다시 넣는 방식이라 재업로드 시 자동으로 덮어써진다. **여기서 가동율을 다시 계산하지 않는다** — 재계산이 필요하면 `analysis.py`를 고쳐야 한다. CSV를 `csv-parse`로 읽을 때 `bom: true`가 반드시 필요하다 — `export_data.py`가 엑셀 호환을 위해 utf-8-sig(BOM 포함)로 저장하는데, BOM을 안 벗기면 첫 컬럼명 앞에 보이지 않는 문자가 붙어 `r["라인"]`이 조용히 `undefined`가 된다(실제로 한 번 겪은 버그).
-- `webapp/src/lib/uploadPipeline.ts`: `runPython`+`ingest`를 묶어 `uploads` 테이블 상태(processing→done/error)까지 기록한다. M5 업로드 Server Action이 이 함수를 그대로 재사용할 예정.
+- `webapp/src/lib/uploadPipeline.ts`: `runPython`+`ingest`를 묶어 `uploads` 테이블 상태(processing→done/error)까지 기록한다. `processUpload()`를 `/upload`의 Server Action, `ingest-once.ts`/`ingest-run.ts`, `/설정` 관리자 모드의 재계산(`lib/admin.ts`의 `recomputeUpload`)까지 전부 재사용한다.
 - `webapp/scripts/ingest-once.ts` (`npm run ingest:once [-- --year 2026 --month 8]`): 위 파이프라인 전체를 한 번에 실행하는 수동 검증용 CLI. `FILES` 맵에 그 달 원본 파일명이 등록돼 있어야 한다.
+- `webapp/scripts/ingest-run.ts` (`npm run ingest:run -- --summary <경로> --detail <경로> --year <Y> --month <M>`): `ingest-once.ts`와 달리 `FILES` 맵 없이 임의 파일 경로를 그대로 받는다 — SMES 자동화(`scripts/smes_automation/run_daily_update.py`)가 매일 새로 받은 파일을 이걸로 바로 적재한다.
+- `webapp/src/lib/admin.ts`: `/설정` 관리자 모드의 파괴적 작업(`deleteUpload`, `resetAll`, `recomputeUpload`, `createBackup`, `createScheduledBackup`). `uploads` 행은 `lineDay`/`allocation`과 FK로 연결돼 있지 않고 연/월로만 대응되므로(`db/schema.ts`), 삭제도 `substr(date,1,7)` 패턴으로 그 달 전체를 지운다 — 업로드 단위가 아니라 사실상 월 단위 삭제다. `createBackup()`(수동 다운로드용, Buffer 반환)과 `createScheduledBackup()`(`backups/`에 파일로 저장 + 오래된 것 자동 삭제, `scripts/backup-db.ts`가 호출) 둘 다 `fs.copyFile`이 아니라 better-sqlite3의 `sqlite.backup()`을 쓴다(WAL 모드에서 단순 복사하면 쓰기 도중 손상된 사본이 될 수 있음).
+- `webapp/src/lib/adminUnlock.ts`: 관리자 모드 잠금 상태(`localStorage` + `CustomEvent`). 인증 게이트 없음(사용자 확정 사항 — 사내망 배포라 로고 5연속 클릭만으로 해제). `Sidebar.tsx`(로고 클릭 카운터, 1.5초 안에 5번)와 `SettingsClient.tsx`(잠금 여부에 따라 `AdminPanel` vs 기존 `PlaceholderPage`)가 이걸로 통신한다.
+- `webapp/src/lib/period.ts`: ①현황판의 일별/기간별/월별 기간 문자열 유틸(`previousPeriod`, `previousRange`, `addDays`, `daysBetween`). **`Date.toISOString()`을 쓰지 않는다** — UTC 변환 때문에 로컬 자정(KST)이 전날로 밀릴 수 있어(실제로 겪음), `getFullYear`/`getMonth`/`getDate`로 직접 포맷한다.
+- `webapp/src/lib/queries.ts`의 `Period` 타입(`string`(`"YYYY-MM"` 또는 `"YYYY-MM-DD"`) `| {from, to}`): `getLineMonthStats`/`getKpiSummary`가 이 타입을 받는다. 문자열 길이(7 vs 10)로 월/일을 구분하는 `periodClause()`가 핵심이라, 다른 화면이 쓰는 `getAvailableMonths` 등 월 전용 함수는 손대지 않고 이 두 함수만 확장했다.
 - `webapp/src/app/upload/actions.ts`(Server Action `uploadAction`) + `components/UploadForm.tsx`(`useActionState`): 파일 2종을 받아 `lib/validateUpload.ts`로 1차 형식 검증 → summary 파일의 `일자별` 컬럼에서 연/월 자동 인식(PRD FR-2) → 이미 있는 달이면 `needs-confirm` 상태로 멈추고, 사용자가 파일을 **다시 선택**하고 확인 버튼을 눌러야 진행된다(FR-3) — 브라우저가 Server Action 응답 후 `<input type=file>`을 비우기 때문에 재선택이 실제로 필요하다(한 번 겪고 확인함). 통과하면 `data/raw/upload_<연>-<월>_{summary,detail}.xls`로 저장 후 `uploadPipeline.processUpload()` 호출.
 - `webapp/src/lib/validateUpload.ts`: SheetJS(`xlsx`)로 헤더 행만 읽어 필수 컬럼 확인. **npm에 공개된 `xlsx` 패키지는 패치 안 된 고위험 취약점(프로토타입 오염·ReDoS)이 있어 쓰지 않는다** — `package.json`의 `xlsx`는 `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`(SheetJS 공식 CDN, 패치됨)를 가리킨다. 업데이트할 때도 이 CDN에서 최신 버전을 받을 것, `npm install xlsx`로 되돌리지 말 것.
 - `/upload` 페이지는 `export const dynamic = "force-dynamic"`이 붙어 있다 — DB를 읽지만(`getUploadHistory`) searchParams 같은 동적 신호가 없어 Next가 빌드 타임에 정적 스냅샷으로 굳힐 수 있어서다.
 - `webapp/CLAUDE.md`/`webapp/AGENTS.md`: Next.js가 `next dev`/`next build` 때마다 자동으로 다시 써넣는 파일(버전별 API 차이를 알려주는 용도). 손으로 고치지 않는다.
 
 ### 화면 (`webapp/`)
-- `webapp/src/lib/queries.ts`: 화면이 쓰는 집계 쿼리(`getAvailableMonths`, `getLineMonthStats`, `getKpiSummary`, `getHeatmapData`, `getLossBreakdown`, `getPareto`, `getTrendSeries`, `getDayDetail` 등). SQLite에서 직접 SQL로 집계하며(`sql` 템플릿), `analysis.py`가 이미 계산해둔 `six_loss_total`/`operating_rate` 등을 다시 계산하지 않고 그대로 합산만 한다. `LineFilter`(`"all"` 또는 라인명 하나)가 ③④⑤ 공통 라인 필터(FR-13)의 기준 타입이다.
-- `webapp/src/app/page.tsx`(①현황판)는 `searchParams`(Next 16이라 `Promise`, `await` 필요)로 `month`/`target`을 받는 **Server Component**다. ③④⑤도 같은 패턴이며 `line`(과 ④는 `topn`, ⑤는 전체기간용 `month=all`)이 더 붙는다. 필터(`components/FilterBar.tsx`)는 클라이언트 JS 없이 순수 `<form method="GET">`로 구현했다 — 값이 바뀌면 그냥 새 URL로 이동해서 서버가 다시 쿼리한다. `showLineFilter`/`showAllPeriodOption`/`topN` 같은 선택적 prop으로 화면마다 다른 조합을 만든다.
-- 차트가 필요한 곳(`Gauge`, `Sparkline`, `HeatmapChart`, `CategoryHeatmap`, `LossCompositionBar`, `WaterfallChart`, `ParetoChart`, `TrendChart`)은 전부 `Plot.tsx`를 통해 각자 `"use client"` + `next/dynamic({ssr:false})`로 불러온다. `LineStatusCard`가 `Gauge`+`Sparkline`+`TopLossBars`(순수 CSS)를 묶어 카드 하나를 만드는 식으로 구성한다.
-- `/api/day-detail`(route handler): ③히트맵 셀 클릭 드릴다운(FR-10)이 쓰는 API. `HeatmapChart`가 클릭 이벤트에서 `fetch`로 호출한다 — Server Component가 아니라 브라우저에서 직접 부르는 것이라 별도 라우트가 필요했다.
+- `webapp/src/lib/queries.ts`: 화면이 쓰는 집계 쿼리(`getAvailableMonths`, `getAvailableDates`, `getLineMonthStats`, `getKpiSummary`, `getLossBreakdown`, `getPareto`, `getTrendSeries` 등). SQLite에서 직접 SQL로 집계하며(`sql` 템플릿), `analysis.py`가 이미 계산해둔 `six_loss_total`/`operating_rate` 등을 다시 계산하지 않고 그대로 합산만 한다. `LineFilter`(`"all"` 또는 라인명 하나)가 ④⑤ 공통 라인 필터(FR-13)의 기준 타입이다.
+- `webapp/src/app/page.tsx`(①현황판)는 `searchParams`(Next 16이라 `Promise`, `await` 필요)로 `mode`(`day`/`range`/`month`)·`period`·`from`·`to`·`target`을 받는 **Server Component**다. ④⑤(로스·추이)는 여전히 월 단위만 다루는 `FilterBar.tsx`(순수 `<form method="GET">`, `month`/`line`/`topn` 등)를 쓰지만, ①은 전용 `components/HomeFilterBar.tsx`, ③(비교분석)은 `CompareFilterBar.tsx`로 각각 분리했다 — 날짜/기간 단위 선택까지 공용 컴포넌트에 얹으면 ④⑤에 영향 줄 위험이 있어서다. `HomeFilterBar`는 날짜 `<select>` 대신 브라우저 기본 달력(`<input type="date">`/`type="month">`)을 쓴다 — 데이터가 몇 년치 쌓이면 `<select>` 목록이 감당 안 돼서(실제로 지적받음) 바꿨다. 선택한 기간에 데이터가 없으면(`kpi.totalLineDays === 0`) 억지로 0%를 보여주지 않고 "데이터가 없습니다"로 안내한다.
+- 차트가 필요한 곳(`Gauge`, `LineComparisonChart`, `LossCompositionBar`, `WaterfallChart`, `ParetoChart`, `TrendChart`)은 전부 `Plot.tsx`를 통해 각자 `"use client"` + `next/dynamic({ssr:false})`로 불러온다. `Gauge`는 고정 px 대신 `useResizeHandler` + `style={{width:"100%"}}`로 카드 폭에 맞춰 반응형으로 커지게 한다(다른 Plotly 컴포넌트와 같은 패턴) — 처음엔 고정 200x160px라 카드에 비해 작아 보인다는 지적을 받고 고쳤다. `LineStatusCard`가 `Gauge`+`TopLossBars`(순수 CSS)를 묶어 카드 하나를 만든다. 일자별 스파크라인(`Sparkline`)은 게이지와 정보가 중복된다는 이유로 삭제했다 — 되살릴 필요 없음.
+- `webapp/src/app/settings/`: 5클릭으로 풀리는 관리자 모드. `page.tsx`(Server, `getUploadHistory`) → `SettingsClient.tsx`(잠금 여부에 따라 `AdminPanel` 또는 `PlaceholderPage`) → `AdminPanel.tsx`(`"use client"`, `useTransition`으로 `settings/actions.ts`의 Server Action 직접 호출 — `<form>` 없이 버튼 `onClick`에서 바로 부름). 파괴적 버튼은 전부 `window.confirm()`으로 1차 확인(전체 초기화는 2번). 백업 다운로드는 `/api/admin/backup`(GET, `lib/admin.ts`의 `createBackup()`).
 - `/api/export/line-day`, `/api/export/allocation`(route handler): CSV 내보내기(FR-14, `ExportLinks`). PNG는 별도 구현 없이 Plotly 차트 툴바의 기본 카메라 아이콘(`config.displayModeBar: true`)으로 대체했다.
-- **Plotly 이름 있는 colorscale('RdYlGn', 'Blues')이 기대와 반대 방향으로 렌더된다** — 실제로 겪은 문제라 `HeatmapChart`/`CategoryHeatmap`은 `colorscale`을 이름 대신 `[[0,색],[1,색]]` 배열로 직접 지정한다. 새 히트맵을 추가할 때도 이름 있는 스케일을 쓰기 전에 스크린샷으로 방향을 먼저 확인할 것.
+- **③히트맵 화면은 제거했다** — 사용자 확정 사항으로 "③비교분석"(`/compare`, `CompareFilterBar`+`LineComparisonChart`)으로 교체. `HeatmapChart`/`CategoryHeatmap`/`getHeatmapData`/`getDayDetail`/`/api/day-detail`가 전부 이때 같이 삭제됐다 — 혹시 남아있는 참조를 보면 죽은 코드다. (참고로 겪었던 교훈: Plotly 이름 있는 colorscale('RdYlGn', 'Blues')은 기대와 반대 방향으로 렌더된다 — 나중에 다시 히트맵류를 추가하면 `[[0,색],[1,색]]` 배열로 직접 지정하고 스크린샷으로 방향을 먼저 확인할 것.)
+- `webapp/src/app/compare/`(③비교분석): 일별/월별/연도별 세 모드로 라인별 시간가동율을 현재 vs 비교기간(전일/전월/전년)으로 막대 그래프 비교한다. `lib/period.ts`의 `previousPeriod`/`previousYear`로 비교 대상 기간을 구하고, 두 기간 모두 기존 `getLineMonthStats(period)`를 그대로 재사용한다(새 쿼리 함수 없음). `LineComparisonChart`가 `rate===1`(비가동)과 `planMinutes===0`(그 기간 데이터 자체 없음)을 구분해서 각각 "비가동"/"데이터 없음" 회색 막대로 표시한다.
 - `queries.ts`에서 클라이언트 컴포넌트가 import할 상수(`LOSS_LABELS` 등)는 `lib/lossCategories.ts`처럼 **`db`를 import하지 않는 별도 파일**에 둔다. `queries.ts` 자체를 클라이언트 컴포넌트가 import하면(타입이 아니라 값을) `better-sqlite3`가 브라우저 번들에 딸려가 "Can't resolve 'fs'"로 빌드가 깨진다(실제로 겪음). `import type`은 컴파일 시 지워지므로 타입만 가져오는 건 괜찮다.
 
 ### 디자인 시스템 연동 (`webapp/`)
@@ -104,7 +138,8 @@ Next.js(App Router, TypeScript) + SQLite(Drizzle ORM) 웹 서비스 계층. 계�
 - `globals.css`의 `@theme inline`은 `sebang.css`가 정의한 `--color-*` 변수를 그대로 다시 노출해 `bg-bg-base`, `text-accent-primary` 같은 Tailwind 유틸리티를 만든다. `@custom-variant dark`가 `data-theme="dark"` 속성 기준으로 `dark:` 유틸리티를 켠다(시스템 설정이 아님). `design.md` 3.3절 타입 스케일(`text-h1` 등)은 `@utility`로 추가했다.
 - `components/ThemeToggle.tsx`는 React state로 테마를 추적하지 않는다 — `<html data-theme>`을 직접 읽고/쓰고 CSS(`dark:hidden` 등)로 보이는 라벨만 바꾼다. React state로 만들면 (레이아웃의 인라인 스크립트가 hydration 전에 미리 정해둔 값과 어긋나) hydration mismatch가 난다.
 - 사이드바 네비게이션은 `lib/nav.ts`의 그룹 배열로만 정의된다. 화면을 추가하려면(생산성지표, OEE 등) 여기에 그룹/항목만 추가하면 된다 — 사용자가 UI 단계에서 화면·기능이 계속 늘어날 것이라고 확인했다.
-- 차트는 `react-plotly.js`+`plotly.js-dist-min`(전체 trace 포함, 용량만 최소화) 하나로 통일한다(`components/Plot.tsx`). Plotly는 `document`에 접근해 SSR이 안 되므로, 쓰는 곳은 반드시 `"use client"` 컴포넌트 안에서 `next/dynamic(..., { ssr: false })`로 불러온다(`components/GaugeCard.tsx` 참고).
+- `webapp/src/components/AppShell.tsx`: `<main>` 우측 하단에 `public/images/rocketboy.png`("로켓보이" SEBANG 마스코트 — 사용자가 준 사진에서 `rembg`로 배경 제거 후 추출)를 `position:fixed` + `opacity-15` + `pointer-events-none`으로 깔아 전 화면 공통 워터마크로 쓴다. 실제 콘텐츠(`z-10`)보다 뒤(`z-0`)에 오게 감싸져 있다 — 겹치는 카드 뒤로 자연스럽게 가려진다. `Sidebar.tsx`의 SEBANG 로고도 `h-6`→`h-10`로 키워 CI를 더 크게 노출한다.
+- 차트는 `react-plotly.js`+`plotly.js-dist-min`(전체 trace 포함, 용량만 최소화) 하나로 통일한다(`components/Plot.tsx`). Plotly는 `document`에 접근해 SSR이 안 되므로, 쓰는 곳은 반드시 `"use client"` 컴포넌트 안에서 `next/dynamic(..., { ssr: false })`로 불러온다(`components/Gauge.tsx` 참고).
 
 ### 테스트 (`webapp/`)
 - Vitest(`src/lib/__tests__/`)는 `webapp/data/agm_oee.sqlite`(개발 DB)를 절대 건드리지 않는다 — `vitest.config.mts`가 `AGM_OEE_PROJECT_ROOT`/`AGM_OEE_DB_PATH`를 `.vitest-scratch/`(테스트 실행마다 새로 만들고 끝나면 지움)로 override하고, `vitest.global-setup.mts`가 그 안에 `drizzle-kit migrate`로 스키마를 만든다. 새 테스트를 추가할 때 이 env를 직접 바꾸지 말 것 — `db`/`paths`가 이미 그 값을 읽게 되어 있다.
@@ -113,10 +148,9 @@ Next.js(App Router, TypeScript) + SQLite(Drizzle ORM) 웹 서비스 계층. 계�
 - Playwright(`tests/e2e/`, `playwright.config.ts`)는 사내망 배포 전 로컬 스모크 테스트용이며, **개발 DB에 이미 적재된 실데이터**를 그대로 읽는다(별도 픽스처 없음) — 포트 3100에서 Playwright가 `npm run dev`를 직접 띄우고 끝나면 종료한다. 화면에 표시되는 정확한 수치가 아니라 "로드되는지·필터를 바꿔도 안 깨지는지"만 확인하는 스모크 테스트다.
 
 ## 다음 할 일
-1. 대시보드 웹앱(`webapp/`, Next.js+SQLite — 아래 참고)을 만든다. 첫 화면은 ①, 상세 화면은 ③④⑤로 구성한다. 요구사항은 [PRD_agm-oee.md](PRD_agm-oee.md), 기술 선택 근거는 [TECH_agm-oee.md](TECH_agm-oee.md) 참고(②설비 상태 타임라인은 부동 발생 시각 데이터가 없어 이번 범위 제외).
-2. 여러 달 데이터와 누계를 처리한다.
-3. 생산실적·25년 라우팅·파견 상세를 추가해 원단위와 총시간 생산성을 산출한다.
-4. 부동 발생시각을 확보한 뒤 설비 상태 타임라인과 OEE로 확장한다.
+- 대시보드 웹앱(①③④⑤ 화면, 업로드, 관리자 모드)과 SMES 자동 다운로드(`scripts/smes_automation/`)는 완료. 진행 상황은 [TO-DO_agm-oee.md](TO-DO_agm-oee.md) 참고(M1~M6 완료, M7 배포 진행 중 — 사내망 서버 설치·정기 백업·접근 제한이 남음).
+- 생산실적·25년 라우팅·파견 상세를 추가해 원단위와 총시간 생산성을 산출한다.
+- 부동 발생시각을 확보한 뒤 설비 상태 타임라인(②)과 OEE로 확장한다.
 
 ## 디자인 시스템 (세방 CI)
 - `sebang_design_system_2/sebang-design-system/sebang.css`: 링크하면 즉시 적용되는 CSS(브랜드 색상 변수, SEBANG Gothic 폰트가 base64로 내장됨, `data-theme="dark"`로 다크모드 전환). 웹앱 화면에 `<link rel="stylesheet">`로 걸어야 실제로 적용된다 — 넣어두기만 해서는 반영 안 됨.

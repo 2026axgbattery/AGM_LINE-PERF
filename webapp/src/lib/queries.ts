@@ -13,6 +13,19 @@ function monthClause(month: string) {
   return sql`substr(${lineDay.date}, 1, 7) = ${month}`;
 }
 
+// ①현황판의 일별/기간별/월별 토글이 쓰는 기간 표현. 문자열이면 "YYYY-MM"(월 전체) 또는
+// "YYYY-MM-DD"(하루), 객체면 from~to(포함) 임의 날짜 범위.
+export type Period = string | { from: string; to: string };
+
+function periodClause(period: Period) {
+  if (typeof period !== "string") {
+    return sql`${lineDay.date} between ${period.from} and ${period.to}`;
+  }
+  // 길이로만 구분하는 건 다른 화면(getAvailableMonths 등)의 기존 월 전용 동작에 영향
+  // 없이 getLineMonthStats/getKpiSummary만 확장하기 위함이다.
+  return period.length === 10 ? sql`${lineDay.date} = ${period}` : monthClause(period);
+}
+
 function selectedLines(line: LineFilter): readonly string[] {
   return !line || line === ALL_LINES ? LINES : [line];
 }
@@ -28,20 +41,30 @@ export function getAvailableMonths(): string[] {
   return rows.map((r) => r.month);
 }
 
+// DB에 적재된 날짜 목록 (최신일 먼저) — ①현황판의 일별 보기 선택지용.
+export function getAvailableDates(): string[] {
+  const rows = db
+    .select({ date: lineDay.date })
+    .from(lineDay)
+    .groupBy(lineDay.date)
+    .orderBy(sql`${lineDay.date} desc`)
+    .all();
+  return rows.map((r) => r.date);
+}
+
 export interface LineMonthStat {
   line: string;
-  rate: number; // 월 시간가동율
+  rate: number; // 기간 시간가동율
   sixLossTotal: number;
   planMinutes: number;
   operatingMinutes: number;
   lastDate: string;
   lastRate: number;
-  dailyRates: { date: string; rate: number }[];
   topLosses: { label: string; minutes: number }[];
 }
 
 export interface KpiSummary {
-  month: string;
+  period: Period;
   overallRate: number;
   sixLossTotal: number;
   worstLine: { line: string; rate: number } | null;
@@ -49,8 +72,9 @@ export interface KpiSummary {
   totalLineDays: number;
 }
 
-// 월 합계(라인별 6대부동 유형 분해 포함). config.SIX_LOSSES와 이름·순서를 맞춘다.
-function getLineMonthTotals(month: string) {
+// 기간 합계(라인별 6대부동 유형 분해 포함). config.SIX_LOSSES와 이름·순서를 맞춘다.
+// period 형태에 따라 그 달 전체/하루/임의 범위를 집계한다(periodClause 참고).
+function getLineMonthTotals(period: Period) {
   return db
     .select({
       line: lineDay.line,
@@ -65,7 +89,7 @@ function getLineMonthTotals(month: string) {
       materialChangeLoss: sql<number>`sum(${lineDay.materialChangeLoss})`,
     })
     .from(lineDay)
-    .where(monthClause(month))
+    .where(periodClause(period))
     .groupBy(lineDay.line)
     .all();
 }
@@ -86,18 +110,18 @@ function topLossesOf(t: LineMonthTotal | undefined): { label: string; minutes: n
     .slice(0, 3);
 }
 
-export function getLineMonthStats(month: string): LineMonthStat[] {
-  const byLine = new Map(getLineMonthTotals(month).map((t) => [t.line, t]));
+export function getLineMonthStats(period: Period): LineMonthStat[] {
+  const byLine = new Map(getLineMonthTotals(period).map((t) => [t.line, t]));
 
   return LINES.map((line): LineMonthStat => {
     const t = byLine.get(line);
-    const daily = db
+    const last = db
       .select({ date: lineDay.date, rate: lineDay.operatingRate })
       .from(lineDay)
-      .where(sql`${lineDay.line} = ${line} and ${monthClause(month)}`)
-      .orderBy(lineDay.date)
-      .all();
-    const last = daily.at(-1);
+      .where(sql`${lineDay.line} = ${line} and ${periodClause(period)}`)
+      .orderBy(sql`${lineDay.date} desc`)
+      .limit(1)
+      .get();
 
     return {
       line,
@@ -107,13 +131,12 @@ export function getLineMonthStats(month: string): LineMonthStat[] {
       operatingMinutes: t?.operatingMinutes ?? 0,
       lastDate: last?.date ?? "",
       lastRate: last?.rate ?? 0,
-      dailyRates: daily,
       topLosses: topLossesOf(t),
     };
   });
 }
 
-export function getKpiSummary(month: string, target: number): KpiSummary {
+export function getKpiSummary(period: Period, target: number): KpiSummary {
   const totalRow = db
     .select({
       planMinutes: sql<number>`sum(${lineDay.planMinutes})`,
@@ -123,15 +146,15 @@ export function getKpiSummary(month: string, target: number): KpiSummary {
       belowTargetDays: sql<number>`sum(case when ${lineDay.operatingRate} < ${target} then 1 else 0 end)`,
     })
     .from(lineDay)
-    .where(monthClause(month))
+    .where(periodClause(period))
     .get();
 
-  const worst = getLineMonthTotals(month)
+  const worst = getLineMonthTotals(period)
     .map((l) => ({ line: l.line, rate: l.planMinutes > 0 ? l.operatingMinutes / l.planMinutes : 0 }))
     .sort((a, b) => a.rate - b.rate)[0];
 
   return {
-    month,
+    period,
     overallRate:
       totalRow && totalRow.planMinutes > 0 ? totalRow.operatingMinutes / totalRow.planMinutes : 0,
     sixLossTotal: totalRow?.sixLossTotal ?? 0,
@@ -139,94 +162,6 @@ export function getKpiSummary(month: string, target: number): KpiSummary {
     belowTargetDays: totalRow?.belowTargetDays ?? 0,
     totalLineDays: totalRow?.totalLineDays ?? 0,
   };
-}
-
-// ── ③ 히트맵 ──────────────────────────────────────────────────
-export interface HeatmapData {
-  lines: string[];
-  dates: string[];
-  rates: Record<string, number[]>; // line -> dates 순서의 시간가동율
-  overallRates: number[] | null; // 라인 전체 선택일 때만 종합 라인 (dates 순서)
-  categoryTotals: { line: string; values: number[] }[]; // values는 LOSS_LABELS 순서 (월 합계, 분)
-}
-
-export function getHeatmapData(month: string, line: LineFilter): HeatmapData {
-  const lines = selectedLines(line);
-
-  const dates = db
-    .select({ date: lineDay.date })
-    .from(lineDay)
-    .where(monthClause(month))
-    .groupBy(lineDay.date)
-    .orderBy(lineDay.date)
-    .all()
-    .map((r) => r.date);
-
-  const rates: Record<string, number[]> = {};
-  for (const l of lines) {
-    const rows = db
-      .select({ date: lineDay.date, rate: lineDay.operatingRate })
-      .from(lineDay)
-      .where(sql`${lineDay.line} = ${l} and ${monthClause(month)}`)
-      .orderBy(lineDay.date)
-      .all();
-    const byDate = new Map(rows.map((r) => [r.date, r.rate]));
-    rates[l] = dates.map((d) => byDate.get(d) ?? 0);
-  }
-
-  let overallRates: number[] | null = null;
-  if (!line || line === ALL_LINES) {
-    const rows = db
-      .select({
-        date: lineDay.date,
-        planMinutes: sql<number>`sum(${lineDay.planMinutes})`,
-        operatingMinutes: sql<number>`sum(${lineDay.operatingMinutes})`,
-      })
-      .from(lineDay)
-      .where(monthClause(month))
-      .groupBy(lineDay.date)
-      .orderBy(lineDay.date)
-      .all();
-    const byDate = new Map(rows.map((r) => [r.date, r.planMinutes > 0 ? r.operatingMinutes / r.planMinutes : 0]));
-    overallRates = dates.map((d) => byDate.get(d) ?? 0);
-  }
-
-  const totalsByLine = new Map(getLineMonthTotals(month).map((t) => [t.line, t]));
-  const categoryTotals = lines.map((l) => {
-    const t = totalsByLine.get(l);
-    return {
-      line: l,
-      values: LOSS_LABELS.map(({ key }) => t?.[key] ?? 0),
-    };
-  });
-
-  return { lines: [...lines], dates, rates, overallRates, categoryTotals };
-}
-
-// ── ③ 드릴다운: 특정 라인·일자의 부동 상세 (FR-10) ──────────────
-export interface AllocationDetail {
-  lossCategory: string;
-  lossDetail: string;
-  detailText: string;
-  minutesAllocated: number;
-  allocationRatio: number;
-  isManualExcluded: boolean;
-}
-
-export function getDayDetail(date: string, line: string): AllocationDetail[] {
-  return db
-    .select({
-      lossCategory: allocation.lossCategory,
-      lossDetail: allocation.lossDetail,
-      detailText: allocation.detailText,
-      minutesAllocated: allocation.minutesAllocated,
-      allocationRatio: allocation.allocationRatio,
-      isManualExcluded: allocation.isManualExcluded,
-    })
-    .from(allocation)
-    .where(sql`${allocation.date} = ${date} and ${allocation.line} = ${line}`)
-    .orderBy(sql`${allocation.minutesAllocated} desc`)
-    .all();
 }
 
 // ── ④ 로스 워터폴/파레토 ──────────────────────────────────────

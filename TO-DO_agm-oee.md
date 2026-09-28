@@ -2,7 +2,7 @@
 
 - 관련 문서: [PLAN_agm-oee.md](PLAN_agm-oee.md), [PRD_agm-oee.md](PRD_agm-oee.md), [TECH_agm-oee.md](TECH_agm-oee.md)
 - 이 파일은 대화가 진행되면서 항목이 완료될 때마다 자동으로 `[x]`로 갱신됩니다. 사람이 직접 체크할 필요는 없습니다.
-- 마지막 갱신: 2026-09-26 (M1~M6 완료, M7 시작 예정)
+- 마지막 갱신: 2026-09-27 (M1~M6 완료, M7 진행 중 — 임시 배포 완료, 정식 서버 이전은 보류)
 
 ## M0. 프로젝트 뼈대
 - [x] git 저장소 초기화 + 최초 커밋 (기존 Python 파이프라인 + 문서 스냅샷)
@@ -62,10 +62,10 @@
 - [x] `npm test`(vitest)가 `tests/e2e/*.spec.ts`(Playwright 전용)를 잘못 주워가는 문제 발견·수정 — `vitest.config.mts`의 `include`를 `src/**/*.test.ts`로 한정
 
 ## M7. 배포
-- [ ] 사내망 서버 Node.js 22 LTS 설치
-- [ ] PM2로 빌드/기동 (`npm run build && pm2 start`)
-- [ ] SQLite 파일 정기 백업 설정
-- [ ] 사내망 접근 제한 설정
+- [ ] 사내망 서버 Node.js 22 LTS 설치 — **보류**: 정식 서버 대신 개발 PC를 임시 호스트로 사용 중(사용자 확정, PLAN_agm-oee.md 열린 질문 1번 미해결 상태로 둠). GUI 기반 SMES 자동화(pywinauto) 특성상 어떤 서버로 옮기든 Windows + 상시 로그인 세션이 필요하다는 제약이 있어, 이관 시점에 다시 논의 필요
+- [x] PM2로 빌드/기동 (`npm run build && pm2 start`) — 개발 PC에서 `ecosystem.config.cjs`로 실행 중, DuckDNS(`lineperf.duckdns.org`) + Windows 방화벽 인바운드 규칙(TCP 3000)으로 사내망(이더넷 대역)에 링크 공유까지 완료
+- [x] SQLite 파일 정기 백업 설정 — 별도 스케줄러 대신 `scripts/smes_automation/run_daily_update.py` 실행 시 `npm run backup:db`가 같이 돌아 `backups/`에 스냅샷 저장(최근 14개 보관, 초과분 자동 삭제). `lib/admin.ts`의 `createScheduledBackup()` + `webapp/scripts/backup-db.ts`
+- [ ] 사내망 접근 제한 설정 — 지금은 Windows 방화벽에서 Domain/Private 프로필 전체에 3000번 포트 허용(IP 대역 좁히기까지는 안 함)
 - [ ] 사용 안내 문서/README 갱신
 
 ## 열린 질문 (해결되는 대로 갱신)

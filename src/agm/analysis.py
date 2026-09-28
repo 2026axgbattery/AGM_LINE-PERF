@@ -32,6 +32,13 @@ def classify(d: pd.DataFrame) -> pd.DataFrame:
     """각 부동 건에 대상라인·관리구분을 붙입니다."""
     d = d.copy()
 
+    if d.empty:
+        # 부동 0건인 날(원본이 '총계' 행만 있는 경우) — 빈 DataFrame에 apply(axis=1)을
+        # 쓰면 pandas가 반환 shape을 잘못 추론해 "여러 컬럼을 단일 컬럼에 대입" 에러가 남.
+        d["대상라인"] = pd.Series([], dtype=object)
+        d["관리구분"] = pd.Series([], dtype=object)
+        return d
+
     def lines_of(text):
         m = re.match(C.LINE_PATTERN, text)
         return [f"AGM조립{x}라인" for x in m.group(1).split(",") if x] if m else []
@@ -64,14 +71,29 @@ def allocate(d: pd.DataFrame) -> pd.DataFrame:
                 "원본시간분": r["시간(분)"], "배분율": f, "배분시간분": r["시간(분)"] * f,
                 "반영구분": "수동작업(제외)" if r["관리구분"] == "수동작업(제외)" else "가동율반영",
             })
+    if not rows:
+        # 부동 0건인 날 — 컬럼 없는 빈 DataFrame이 되면 line_day()의 컬럼 접근이 깨짐.
+        return pd.DataFrame(columns=[
+            "원본idx", "일자", "라인", "대분류명", "부동유형", "부동내역", "세부내역",
+            "원본시간분", "배분율", "배분시간분", "반영구분",
+        ])
     return pd.DataFrame(rows)
 
 
 # ── 3. 가동율 ───────────────────────────────────────────────
-def line_day(alloc: pd.DataFrame, plan=C.PLAN_MIN_PER_DAY, year=C.YEAR, month=C.MONTH) -> pd.DataFrame:
-    """라인 × 일자 × 6대부동 시간(분)과 시간가동율."""
+def line_day(alloc: pd.DataFrame, plan=C.PLAN_MIN_PER_DAY, year=C.YEAR, month=C.MONTH, days=None) -> pd.DataFrame:
+    """라인 × 일자 × 6대부동 시간(분)과 시간가동율.
+
+    `days`를 넘기면 그 날짜들만 계산한다 — 하루치만 조회한 증분 다운로드(SMES 자동화)를
+    반영할 때, 조회하지 않은 나머지 날짜까지 "부동 0건=100% 가동"으로 잘못 채우는 것을
+    막기 위함이다(실제로 겪은 문제: 하루치만 넣었더니 그 달 나머지 날짜가 전부 100%로
+    덮어써짐). 안 넘기면 기존처럼 year/month의 전체 달력 일수를 채운다.
+    """
     a = alloc[alloc["반영구분"] == "가동율반영"]
-    days = pd.date_range(f"{year}-{month:02d}-01", periods=pd.Period(f"{year}-{month:02d}").days_in_month)
+    if days is None:
+        days = pd.date_range(f"{year}-{month:02d}-01", periods=pd.Period(f"{year}-{month:02d}").days_in_month)
+    else:
+        days = pd.DatetimeIndex(sorted(pd.to_datetime(pd.unique(days))))
     idx = pd.MultiIndex.from_product([C.LINES, days], names=["라인", "일자"])
     t = a.pivot_table(index=["라인", "일자"], columns="부동유형", values="배분시간분", aggfunc="sum")
     t = t.reindex(idx).reindex(columns=list(C.SIX_LOSSES.values())).fillna(0)
@@ -122,6 +144,6 @@ def run_all(summary_path=C.SUMMARY_FILE, detail_path=C.DETAIL_FILE, year=C.YEAR,
     """
     summary, detail = load_summary(summary_path), classify(load_detail(detail_path))
     alloc = allocate(detail)
-    ld = line_day(alloc, year=year, month=month)
+    ld = line_day(alloc, year=year, month=month, days=summary["일자"])
     return {"summary": summary, "detail": detail, "alloc": alloc,
             "line_day": ld, "monthly": monthly(ld), "pareto": pareto(alloc), "kpi": process_kpi(summary)}

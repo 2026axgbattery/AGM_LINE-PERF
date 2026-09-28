@@ -10,20 +10,25 @@ export interface GaugeProps {
   rate: number; // 0~1
   target: number; // 0~1
   color: string;
+  isNoData?: boolean; // rate===1(6대부동 0분)일 때 true — "100%" 대신 "비가동" 텍스트로 표시
 }
 
 // ①현황판 라인별 카드의 링 게이지 차트 부분만 담당한다 (카드 레이아웃은 LineStatusCard가 맡음).
-export function Gauge({ rate, target, color }: GaugeProps) {
+// 카드 폭에 맞춰 최대한 크게 보이도록 고정 width 대신 useResizeHandler로 반응형 처리한다
+// (다른 Plotly 컴포넌트들, 예: WaterfallChart.tsx와 같은 패턴).
+export function Gauge({ rate, target, color, isNoData }: GaugeProps) {
+  // Plotly indicator의 number 서브트레이스는 숫자만 받을 수 있어 "비가동" 같은 문자열을 못
+  // 넣는다 — number를 아예 빼고(mode="gauge") layout.annotations로 가운데에 텍스트를 얹는다.
   return (
     <Plot
       data={[
         {
           type: "indicator",
-          mode: "gauge+number",
+          mode: isNoData ? "gauge" : "gauge+number",
           value: rate * 100,
-          number: { suffix: "%", font: { size: 28 } },
+          number: { suffix: "%", font: { size: 44 } },
           gauge: {
-            axis: { range: [0, 100], tickfont: { size: 10 } },
+            axis: { range: [0, 100], tickfont: { size: 13 } },
             bar: { color },
             threshold: {
               line: { color: "#52514e", width: 3 },
@@ -34,13 +39,27 @@ export function Gauge({ rate, target, color }: GaugeProps) {
         },
       ]}
       layout={{
-        width: 200,
-        height: 160,
-        margin: { t: 20, b: 10, l: 20, r: 20 },
+        height: 260,
+        margin: { t: 30, b: 10, l: 30, r: 30 },
         paper_bgcolor: "transparent",
         font: { family: "var(--font-family-base)" },
+        annotations: isNoData
+          ? [
+              {
+                text: "비가동",
+                showarrow: false,
+                x: 0.5,
+                y: 0.35,
+                xref: "paper",
+                yref: "paper",
+                font: { size: 32, color },
+              },
+            ]
+          : [],
       }}
       config={{ displayModeBar: false }}
+      style={{ width: "100%" }}
+      useResizeHandler
     />
   );
 }

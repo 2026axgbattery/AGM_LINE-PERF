@@ -15,7 +15,7 @@ export const NAV: NavGroup[] = [
   {
     label: "분석",
     items: [
-      { label: "히트맵", href: "/heatmap" },
+      { label: "비교분석", href: "/compare" },
       { label: "로스", href: "/loss" },
       { label: "추이", href: "/trend" },
     ],

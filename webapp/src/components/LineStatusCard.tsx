@@ -1,5 +1,4 @@
 import { Gauge } from "./Gauge";
-import { Sparkline } from "./Sparkline";
 import { TopLossBars } from "./TopLossBars";
 import { rateStatus } from "@/lib/status";
 import type { LineMonthStat } from "@/lib/queries";
@@ -7,9 +6,10 @@ import type { LineMonthStat } from "@/lib/queries";
 export interface LineStatusCardProps {
   stat: LineMonthStat;
   target: number;
+  periodLabel?: string; // "월"(기본) 또는 "일" — ①현황판 일별/월별 토글용 (HomeFilterBar 참고)
 }
 
-export function LineStatusCard({ stat, target }: LineStatusCardProps) {
+export function LineStatusCard({ stat, target, periodLabel = "월" }: LineStatusCardProps) {
   const status = rateStatus(stat.rate, target);
 
   return (
@@ -24,28 +24,24 @@ export function LineStatusCard({ stat, target }: LineStatusCardProps) {
         </span>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Gauge rate={stat.rate} target={target} color={status.color} />
-        <div className="text-body-sm flex flex-col gap-1 text-text-secondary">
-          <div>
-            월 부동 <b className="text-text-primary">{stat.sixLossTotal.toLocaleString()}분</b>
-          </div>
-          <div>
-            월 가동 <b className="text-text-primary">{stat.operatingMinutes.toLocaleString()}분</b>
-          </div>
-          {stat.lastDate && (
-            <div>
-              {stat.lastDate.slice(5).replace("-", "/")}{" "}
-              <b className="text-text-primary">{(stat.lastRate * 100).toFixed(1)}%</b>
-            </div>
-          )}
-        </div>
-      </div>
+      <Gauge rate={stat.rate} target={target} color={status.color} isNoData={status.level === "noData"} />
 
-      <div className="text-caption mt-2 mb-1 text-text-secondary">
-        일자별 가동율 (점선 = 목표 {(target * 100).toFixed(0)}%)
+      <div className="text-body-sm -mt-2 flex flex-wrap justify-center gap-x-6 gap-y-1 text-center text-text-secondary">
+        <div>
+          {periodLabel} 부동 <b className="text-text-primary">{stat.sixLossTotal.toLocaleString()}분</b>
+        </div>
+        <div>
+          {periodLabel} 가동 <b className="text-text-primary">{stat.operatingMinutes.toLocaleString()}분</b>
+        </div>
+        {stat.lastDate && (
+          <div>
+            {stat.lastDate.slice(5).replace("-", "/")}{" "}
+            <b className="text-text-primary">
+              {stat.lastRate === 1 ? <span style={{ color: status.color }}>비가동</span> : `${(stat.lastRate * 100).toFixed(1)}%`}
+            </b>
+          </div>
+        )}
       </div>
-      <Sparkline dailyRates={stat.dailyRates} target={target} />
 
       <div className="text-caption mt-3 mb-1 text-text-secondary">부동 TOP 3</div>
       <TopLossBars items={stat.topLosses} />
