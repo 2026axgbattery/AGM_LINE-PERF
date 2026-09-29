@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { LOSS_CATEGORY_COLOR } from "@/lib/lossCategories";
 
-const Plot = dynamic(() => import("./Plot"), { ssr: false });
+const Plot = dynamic(() => import("./AnimatedPlot").then((m) => m.AnimatedPlot), { ssr: false });
 
 const OPERATING_COLOR = "#6b7a84"; // "가동" 구간 — 부동유형이 아니라 별도 고정색
 

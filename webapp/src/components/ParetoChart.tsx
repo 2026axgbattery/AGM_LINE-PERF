@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import type { ParetoItem } from "@/lib/queries";
 
-const Plot = dynamic(() => import("./Plot"), { ssr: false });
+const Plot = dynamic(() => import("./AnimatedPlot").then((m) => m.AnimatedPlot), { ssr: false });
 
 export interface ParetoChartProps {
   items: ParetoItem[];

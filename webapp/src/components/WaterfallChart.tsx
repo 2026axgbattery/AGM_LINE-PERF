@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { LOSS_CATEGORY_COLOR } from "@/lib/lossCategories";
 
-const Plot = dynamic(() => import("./Plot"), { ssr: false });
+const Plot = dynamic(() => import("./AnimatedPlot").then((m) => m.AnimatedPlot), { ssr: false });
 
 const TOTAL_COLOR = "#52514e";
 

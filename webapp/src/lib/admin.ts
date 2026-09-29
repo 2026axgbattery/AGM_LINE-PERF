@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { db, sqlite } from "@/db";
 import { allocation, lineDay, uploads } from "@/db/schema";
 import { BACKUP_DIR } from "./paths";
+import { nowLocalFilenameStamp } from "./timestamp";
 import { processUpload, type ProcessUploadResult } from "./uploadPipeline";
 
 // 설정 화면의 "관리자 모드"에서 쓰는 파괴적 작업들 — 화면 쪽 액션(app/settings/actions.ts)에서
@@ -96,7 +97,7 @@ export async function createBackup(): Promise<BackupResult> {
   await sqlite.backup(tmpPath);
   try {
     const data = fs.readFileSync(tmpPath);
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const stamp = nowLocalFilenameStamp();
     return { filename: `agm_oee_${stamp}.sqlite`, data };
   } finally {
     fs.rmSync(tmpPath, { force: true });
@@ -117,7 +118,7 @@ export interface ScheduledBackupResult {
 export async function createScheduledBackup(retain = 14): Promise<ScheduledBackupResult> {
   fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
-  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  const stamp = nowLocalFilenameStamp();
   const backupPath = path.join(BACKUP_DIR, `agm_oee_${stamp}.sqlite`);
   await sqlite.backup(backupPath);
 

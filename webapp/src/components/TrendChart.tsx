@@ -5,7 +5,7 @@ import { movingAverage } from "@/lib/movingAverage";
 import { rateStatus } from "@/lib/status";
 import { LINE_SHORT_LABEL } from "@/lib/lines";
 
-const Plot = dynamic(() => import("./Plot"), { ssr: false });
+const Plot = dynamic(() => import("./AnimatedPlot").then((m) => m.AnimatedPlot), { ssr: false });
 
 export interface TrendChartProps {
   line: string;
@@ -44,6 +44,7 @@ export function TrendChart({ line, dates, rates, target }: TrendChartProps) {
             y: rates.map((r) => r * 100),
             name: "일 가동율",
             line: { color: "#2a78d6" },
+            hovertemplate: "%{x}<br>일 가동율 %{y:.1f}%<extra></extra>",
           },
           {
             type: "scatter",
@@ -52,6 +53,7 @@ export function TrendChart({ line, dates, rates, target }: TrendChartProps) {
             y: ma.map((r) => r * 100),
             name: "7일 이동평균",
             line: { color: "#898781", dash: "dash" },
+            hovertemplate: "%{x}<br>7일 이동평균 %{y:.1f}%<extra></extra>",
           },
           {
             type: "scatter",
@@ -60,6 +62,7 @@ export function TrendChart({ line, dates, rates, target }: TrendChartProps) {
             y: belowIdx.map((i) => rates[i] * 100),
             name: "목표 미달",
             marker: { color: "#d03b3b", size: 7 },
+            hovertemplate: "%{x}<br>%{y:.1f}% (목표 미달)<extra></extra>",
           },
         ]}
         layout={{

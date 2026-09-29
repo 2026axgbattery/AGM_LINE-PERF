@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { uploads } from "@/db/schema";
 import { ingestFromOutput, type IngestResult } from "./ingest";
 import { runExportPipeline } from "./runPython";
+import { nowLocalTimestamp } from "./timestamp";
 
 export interface ProcessUploadInput {
   year: number;
@@ -26,7 +27,7 @@ export async function processUpload(input: ProcessUploadInput): Promise<ProcessU
       month: input.month,
       summaryFile: input.summaryFile,
       detailFile: input.detailFile,
-      uploadedAt: new Date().toISOString(),
+      uploadedAt: nowLocalTimestamp(),
       status: "processing",
     })
     .returning({ id: uploads.id })

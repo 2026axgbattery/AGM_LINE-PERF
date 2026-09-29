@@ -107,48 +107,35 @@ export default async function Home({ searchParams }: HomePageProps) {
         to={rangeTo}
         target={targetPercent}
       />
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-h1">① 현황판</h1>
-            <p className="text-body text-text-secondary">{periodText} · AGM 조립 1~4라인</p>
-          </div>
-          <PeriodFilterBar
-            basePath="/"
-            mode={mode}
-            selectedDate={selectedDate}
-            selectedMonth={selectedMonth}
-            rangeFrom={rangeFrom}
-            rangeTo={rangeTo}
-            minDate={minDate}
-            maxDate={maxDate}
-            extraFields={
-              <label className="flex flex-col gap-1">
-                <span className="text-caption text-text-secondary">목표 가동율(%)</span>
-                <input
-                  type="number"
-                  name="target"
-                  min={1}
-                  max={100}
-                  step={1}
-                  defaultValue={targetPercent}
-                  className="text-body-sm w-24 rounded-md border border-border bg-bg-base px-2 py-1.5"
-                />
-              </label>
-            }
-          />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-h1">① 현황판</h1>
+          <p className="text-body text-text-secondary">{periodText} · AGM 조립 1~4라인</p>
         </div>
-
-        <aside className="max-w-xs rounded-md border border-border bg-bg-surface p-3">
-          <div className="text-[0.6875rem] font-medium break-keep text-text-secondary">가동율 산출식 (참고)</div>
-          <p className="mt-1 text-[0.6875rem] leading-relaxed break-keep text-text-secondary">
-            라인 가동율 = (계획가동시간 − 6대부동시간) ÷ 계획가동시간
-            <br />
-            계획가동시간 = 1,320분/일 (3조2교대)
-            <br />
-            6대부동 = 생산·설비·자재·관리·라인언밸런스·부자재교체
-          </p>
-        </aside>
+        <PeriodFilterBar
+          basePath="/"
+          mode={mode}
+          selectedDate={selectedDate}
+          selectedMonth={selectedMonth}
+          rangeFrom={rangeFrom}
+          rangeTo={rangeTo}
+          minDate={minDate}
+          maxDate={maxDate}
+          extraFields={
+            <label className="flex flex-col gap-1">
+              <span className="text-caption text-text-secondary">목표 가동율(%)</span>
+              <input
+                type="number"
+                name="target"
+                min={1}
+                max={100}
+                step={1}
+                defaultValue={targetPercent}
+                className="text-body-sm w-24 rounded-md border border-border bg-bg-base px-2 py-1.5"
+              />
+            </label>
+          }
+        />
       </div>
 
       {noData ? (
@@ -201,6 +188,19 @@ export default async function Home({ searchParams }: HomePageProps) {
           </div>
         </>
       )}
+
+      {/* 가동율 산출식 참고 — 예전엔 헤더 옆에 있었는데, 항상 눈에 보일 필요는 없는 참고
+          자료라 스크롤해야 보이는 맨 아래로 내렸다(사용자 확정 사항). */}
+      <aside className="max-w-xs rounded-md border border-border bg-bg-surface p-3">
+        <div className="text-[0.6875rem] font-medium break-keep text-text-secondary">가동율 산출식 (참고)</div>
+        <p className="mt-1 text-[0.6875rem] leading-relaxed break-keep text-text-secondary">
+          라인 가동율 = (계획가동시간 − 6대부동시간) ÷ 계획가동시간
+          <br />
+          계획가동시간 = 1,320분/일 (3조2교대)
+          <br />
+          6대부동 = 생산·설비·자재·관리·라인언밸런스·부자재교체
+        </p>
+      </aside>
     </div>
   );
 }

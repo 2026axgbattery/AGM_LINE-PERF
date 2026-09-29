@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 
 // Plotly는 브라우저 전용(document 접근)이라 SSR을 꺼야 한다. dynamic({ssr:false})는
 // Client Component 안에서만 허용되므로 이 파일 전체가 "use client"여야 한다.
-const Plot = dynamic(() => import("./Plot"), { ssr: false });
+const Plot = dynamic(() => import("./AnimatedPlot").then((m) => m.AnimatedPlot), { ssr: false });
 
 export interface GaugeProps {
   rate: number; // 0~1
